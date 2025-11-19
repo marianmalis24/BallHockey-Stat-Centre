@@ -30,10 +30,42 @@ export function ShotDiagram({ shots, players, isOurTeam }: ShotDiagramProps) {
     );
   }
 
+  const adjustedShots = filteredShots.map((shot, index) => {
+    if (!shot.location) return shot;
+
+    const COLLISION_THRESHOLD = 0.05;
+    let adjustedX = shot.location.x;
+    let adjustedY = shot.location.y;
+
+    for (let i = 0; i < index; i++) {
+      const otherShot = filteredShots[i];
+      if (!otherShot.location) continue;
+
+      const dx = adjustedX - otherShot.location.x;
+      const dy = adjustedY - otherShot.location.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < COLLISION_THRESHOLD) {
+        const angle = Math.atan2(dy, dx);
+        const offsetDistance = COLLISION_THRESHOLD * 1.2;
+        adjustedX = otherShot.location.x + Math.cos(angle) * offsetDistance;
+        adjustedY = otherShot.location.y + Math.sin(angle) * offsetDistance;
+      }
+    }
+
+    adjustedX = Math.max(0.05, Math.min(0.95, adjustedX));
+    adjustedY = Math.max(0.05, Math.min(0.95, adjustedY));
+
+    return {
+      ...shot,
+      location: { x: adjustedX, y: adjustedY },
+    };
+  });
+
   return (
     <View style={styles.container}>
       <View style={styles.net}>
-        {filteredShots.map((shot) => {
+        {adjustedShots.map((shot) => {
           if (!shot.location) return null;
 
           const player = shot.playerId

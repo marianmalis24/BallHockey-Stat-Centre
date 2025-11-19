@@ -82,14 +82,22 @@ export default function MatchHistoryScreen() {
               const isLoss = match.ourScore < match.opponentScore;
 
               return (
-                <View key={match.id} style={styles.matchCard}>
+                <TouchableOpacity
+                  key={match.id}
+                  style={styles.matchCard}
+                  onPress={() => router.push({ pathname: '/match-detail', params: { matchId: match.id } })}
+                  activeOpacity={0.7}
+                >
                   <View style={styles.matchHeader}>
                     <View style={styles.dateContainer}>
                       <Calendar color="#8e8e93" size={16} />
                       <Text style={styles.matchDate}>{formatDate(match.date)}</Text>
                     </View>
                     <TouchableOpacity
-                      onPress={() => handleDeleteMatch(match.id, match.opponentName)}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleDeleteMatch(match.id, match.opponentName);
+                      }}
                       style={styles.deleteButton}
                     >
                       <Trash2 color="#FF3B30" size={20} />
@@ -146,7 +154,7 @@ export default function MatchHistoryScreen() {
                       </View>
                     </View>
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </>
