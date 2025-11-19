@@ -15,15 +15,23 @@ interface ShotModalProps {
   visible: boolean;
   isOurTeam: boolean;
   onClose: () => void;
+  preselectedScorer?: string;
+  isGoalShot?: boolean;
 }
 
 const NET_WIDTH = Dimensions.get('window').width - 32;
 const NET_HEIGHT = NET_WIDTH * 0.6;
 
-export function ShotModal({ visible, isOurTeam, onClose }: ShotModalProps) {
+export function ShotModal({ visible, isOurTeam, onClose, preselectedScorer, isGoalShot = false }: ShotModalProps) {
   const { players, activeMatch, addShot } = useHockey();
   const [location, setLocation] = useState<ShotLocation | null>(null);
-  const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<string | null>(preselectedScorer || null);
+
+  React.useEffect(() => {
+    if (visible && preselectedScorer) {
+      setSelectedPlayer(preselectedScorer);
+    }
+  }, [visible, preselectedScorer]);
 
   const rosterPlayers = activeMatch
     ? players.filter((p) =>
@@ -42,7 +50,7 @@ export function ShotModal({ visible, isOurTeam, onClose }: ShotModalProps) {
       location: location || undefined,
       isOurTeam,
       onGoal: true,
-      result: 'save',
+      result: isGoalShot ? 'goal' : 'save',
     });
 
     resetAndClose();
@@ -59,7 +67,7 @@ export function ShotModal({ visible, isOurTeam, onClose }: ShotModalProps) {
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>
-            {isOurTeam ? 'Shot Taken' : 'Shot Against'}
+            {isGoalShot ? 'Mark Goal Shot Location' : (isOurTeam ? 'Shot Taken' : 'Shot Against')}
           </Text>
           <TouchableOpacity onPress={resetAndClose} style={styles.closeButton}>
             <X color="#1c1c1e" size={24} />

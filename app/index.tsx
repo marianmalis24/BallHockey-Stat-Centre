@@ -23,6 +23,8 @@ export default function GameScreen() {
   const [shotModalVisible, setShotModalVisible] = useState(false);
   const [goalType, setGoalType] = useState<'our' | 'opponent'>('our');
   const [shotType, setShotType] = useState<'our' | 'opponent'>('our');
+  const [pendingGoalScorerId, setPendingGoalScorerId] = useState<string | null>(null);
+  const [isGoalShotMode, setIsGoalShotMode] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [playerActionModalVisible, setPlayerActionModalVisible] = useState(false);
   const [periodSummaryVisible, setPeriodSummaryVisible] = useState(false);
@@ -346,12 +348,25 @@ export default function GameScreen() {
         visible={goalModalVisible}
         isOurTeam={goalType === 'our'}
         onClose={() => setGoalModalVisible(false)}
+        onOpenShotModal={() => {
+          if (!activeMatch || !activeMatch.goals.length) return;
+          const lastGoal = activeMatch.goals[activeMatch.goals.length - 1];
+          setPendingGoalScorerId(lastGoal.scorerId);
+          setIsGoalShotMode(true);
+          setShotModalVisible(true);
+        }}
       />
 
       <ShotModal
         visible={shotModalVisible}
         isOurTeam={shotType === 'our'}
-        onClose={() => setShotModalVisible(false)}
+        onClose={() => {
+          setShotModalVisible(false);
+          setPendingGoalScorerId(null);
+          setIsGoalShotMode(false);
+        }}
+        preselectedScorer={pendingGoalScorerId || undefined}
+        isGoalShot={isGoalShotMode}
       />
 
       <PlayerActionModal

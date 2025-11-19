@@ -1,5 +1,5 @@
 import { useHockey } from '@/contexts/hockey-context';
-import { X, Target } from 'lucide-react-native';
+import { X } from 'lucide-react-native';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -11,25 +11,24 @@ import {
   Dimensions,
   Alert,
 } from 'react-native';
-import { ShotLocation } from '@/types/hockey';
 
 interface GoalModalProps {
   visible: boolean;
   isOurTeam: boolean;
   onClose: () => void;
+  onOpenShotModal?: () => void;
 }
 
 const NET_WIDTH = Dimensions.get('window').width - 32;
 const NET_HEIGHT = NET_WIDTH * 0.6;
 
-export function GoalModal({ visible, isOurTeam, onClose }: GoalModalProps) {
+export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: GoalModalProps) {
   const { players, activeMatch, addGoal, addShot } = useHockey();
   const [scorer, setScorer] = useState<string | null>(null);
   const [assists, setAssists] = useState<string[]>([]);
   const [plusPlayers, setPlusPlayers] = useState<string[]>([]);
   const [minusPlayers, setMinusPlayers] = useState<string[]>([]);
   const [autoSelectedPlus, setAutoSelectedPlus] = useState<string[]>([]);
-  const [shotLocation, setShotLocation] = useState<ShotLocation | null>(null);
 
   const rosterPlayers = activeMatch
     ? players.filter((p) =>
@@ -43,7 +42,6 @@ export function GoalModal({ visible, isOurTeam, onClose }: GoalModalProps) {
       setAssists([]);
       setPlusPlayers([]);
       setMinusPlayers([]);
-      setShotLocation(null);
       setAutoSelectedPlus([]);
     }
   }, [visible]);
@@ -52,16 +50,10 @@ export function GoalModal({ visible, isOurTeam, onClose }: GoalModalProps) {
     console.log('=== GoalModal handleSave called ===');
     console.log('isOurTeam:', isOurTeam);
     console.log('scorer:', scorer);
-    console.log('shotLocation:', shotLocation);
     console.log('minusPlayers:', minusPlayers);
     
     if (isOurTeam && !scorer) {
       Alert.alert('Missing Information', 'Please select the goal scorer');
-      return;
-    }
-
-    if (isOurTeam && !shotLocation) {
-      Alert.alert('Missing Information', 'Please tap on the net to mark where the shot went');
       return;
     }
 
@@ -70,19 +62,9 @@ export function GoalModal({ visible, isOurTeam, onClose }: GoalModalProps) {
       return;
     }
 
-    console.log('GoalModal: All validations passed, calling addShot first then addGoal');
+    console.log('GoalModal: All validations passed, calling addGoal');
     
-    if (isOurTeam && shotLocation && scorer) {
-      console.log('GoalModal: Adding shot for our goal at location', shotLocation);
-      addShot({
-        playerId: scorer,
-        location: shotLocation,
-        isOurTeam: true,
-        onGoal: true,
-        result: 'goal',
-      });
-      console.log('GoalModal: addShot function called');
-    } else if (!isOurTeam) {
+    if (!isOurTeam) {
       console.log('GoalModal: Adding shot for opponent goal');
       addShot({
         playerId: undefined,
@@ -110,6 +92,11 @@ export function GoalModal({ visible, isOurTeam, onClose }: GoalModalProps) {
 
     console.log('GoalModal: Closing modal');
     resetAndClose();
+    
+    if (isOurTeam && onOpenShotModal) {
+      console.log('GoalModal: Opening shot modal for goal shot location');
+      onOpenShotModal();
+    }
     console.log('=== GoalModal handleSave finished ===');
   };
 
@@ -118,14 +105,8 @@ export function GoalModal({ visible, isOurTeam, onClose }: GoalModalProps) {
     setAssists([]);
     setPlusPlayers([]);
     setMinusPlayers([]);
-    setShotLocation(null);
     setAutoSelectedPlus([]);
     onClose();
-  };
-
-  const handleNetPress = (event: any) => {
-    const { locationX, locationY } = event.nativeEvent;
-    setShotLocation({ x: locationX / NET_WIDTH, y: locationY / NET_HEIGHT });
   };
 
   const toggleAssist = (playerId: string) => {
@@ -248,32 +229,6 @@ export function GoalModal({ visible, isOurTeam, onClose }: GoalModalProps) {
                       </TouchableOpacity>
                     ))}
                 </View>
-              </View>
-
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Shot Target Location (Tap on net)</Text>
-                <TouchableOpacity
-                  style={styles.net}
-                  onPress={handleNetPress}
-                  activeOpacity={0.9}
-                >
-                  {shotLocation && (
-                    <View
-                      style={[
-                        styles.shotMarker,
-                        {
-                          left: shotLocation.x * NET_WIDTH - 8,
-                          top: shotLocation.y * NET_HEIGHT - 8,
-                        },
-                      ]}
-                    >
-                      <Target color="#FFD700" size={16} />
-                    </View>
-                  )}
-                  {!shotLocation && (
-                    <Text style={styles.netPlaceholder}>Tap to mark where shot went</Text>
-                  )}
-                </TouchableOpacity>
               </View>
 
               <View style={styles.section}>
