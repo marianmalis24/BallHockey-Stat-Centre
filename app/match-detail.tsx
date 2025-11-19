@@ -1,6 +1,6 @@
 import { useHockey } from '@/contexts/hockey-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, Target, Users } from 'lucide-react-native';
+import { ChevronLeft, Target, Users, Crosshair } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import {
   View,
@@ -10,6 +10,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { getRatingColor } from '@/constants/ratingColors';
+import { ShotDiagram } from '@/components/ShotDiagram';
 
 export default function MatchDetailScreen() {
   const { matchId } = useLocalSearchParams<{ matchId: string }>();
@@ -308,6 +309,22 @@ export default function MatchDetailScreen() {
             </View>
           ))}
         </View>
+
+        <View style={styles.shotCard}>
+          <View style={styles.statHeader}>
+            <Crosshair color="#007AFF" size={20} />
+            <Text style={styles.sectionTitle}>Our Shots on Target</Text>
+          </View>
+          <ShotDiagram shots={match.shots} players={players} isOurTeam={true} />
+        </View>
+
+        <View style={styles.shotCard}>
+          <View style={styles.statHeader}>
+            <Crosshair color="#FF3B30" size={20} />
+            <Text style={styles.sectionTitle}>Opponent Shots on Target</Text>
+          </View>
+          <ShotDiagram shots={match.shots} players={players} isOurTeam={false} />
+        </View>
       </ScrollView>
     </View>
   );
@@ -602,5 +619,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700' as const,
     color: '#fff',
+  },
+  shotCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
 });

@@ -102,7 +102,24 @@ export function ShotModal({ visible, isOurTeam, onClose }: ShotModalProps) {
                   onPress={handleNetPress}
                   activeOpacity={0.9}
                 >
-                  {location && (
+                  {location && selectedPlayer && (
+                    <View
+                      style={[
+                        styles.shotMarker,
+                        {
+                          left: location.x * NET_WIDTH - 16,
+                          top: location.y * NET_HEIGHT - 16,
+                        },
+                      ]}
+                    >
+                      <View style={styles.shotCircle}>
+                        <Text style={styles.shotPlayerNumber}>
+                          {players.find(p => p.id === selectedPlayer)?.jerseyNumber}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+                  {location && !selectedPlayer && (
                     <View
                       style={[
                         styles.shotMarker,
@@ -216,8 +233,23 @@ const styles = StyleSheet.create({
   },
   shotMarker: {
     position: 'absolute' as const,
-    width: 16,
-    height: 16,
+    width: 32,
+    height: 32,
+  },
+  shotCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#007AFF',
+    borderWidth: 2,
+    borderColor: '#0051D5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shotPlayerNumber: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: '#fff',
   },
   resultButtons: {
     flexDirection: 'row',
