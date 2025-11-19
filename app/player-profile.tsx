@@ -2,6 +2,7 @@ import { useHockey } from '@/contexts/hockey-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import React from 'react';
+import { getRatingColor } from '@/constants/ratingColors';
 import {
   View,
   Text,
@@ -61,7 +62,7 @@ export default function PlayerProfileScreen() {
           <Text style={styles.playerPosition}>
             {player.position.charAt(0).toUpperCase() + player.position.slice(1)}
           </Text>
-          <View style={styles.ratingBadge}>
+          <View style={[styles.ratingBadge, { backgroundColor: getRatingColor(stats.rating) }]}>
             <Text style={styles.ratingText}>{stats.rating.toFixed(1)}</Text>
             <Text style={styles.ratingLabel}>Rating</Text>
           </View>
@@ -198,7 +199,7 @@ export default function PlayerProfileScreen() {
                     </View>
                     <View style={styles.matchStatItem}>
                       <Text style={styles.matchStatLabel}>Rating</Text>
-                      <Text style={styles.matchStatValue}>
+                      <Text style={[styles.matchStatValue, { color: getRatingColor(match.rating) }]}>
                         {match.rating.toFixed(1)}
                       </Text>
                     </View>
@@ -262,7 +263,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   ratingBadge: {
-    backgroundColor: '#34C759',
     borderRadius: 12,
     paddingVertical: 8,
     paddingHorizontal: 20,
