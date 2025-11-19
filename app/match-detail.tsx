@@ -315,7 +315,12 @@ export default function MatchDetailScreen() {
             <Crosshair color="#007AFF" size={20} />
             <Text style={styles.sectionTitle}>Our Shots on Target</Text>
           </View>
-          <ShotDiagram shots={match.shots} players={players} isOurTeam={true} />
+          <ShotDiagram
+            shots={match.shots}
+            players={players}
+            isOurTeam={true}
+            periods={match.currentPeriod || 3}
+          />
         </View>
 
         <View style={styles.shotCard}>
@@ -323,7 +328,12 @@ export default function MatchDetailScreen() {
             <Crosshair color="#FF3B30" size={20} />
             <Text style={styles.sectionTitle}>Opponent Shots on Target</Text>
           </View>
-          <ShotDiagram shots={match.shots} players={players} isOurTeam={false} />
+          <ShotDiagram
+            shots={match.shots}
+            players={players}
+            isOurTeam={false}
+            periods={match.currentPeriod || 3}
+          />
         </View>
       </ScrollView>
     </View>

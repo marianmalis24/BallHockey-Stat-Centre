@@ -1,26 +1,43 @@
 import { Shot, Player } from '@/types/hockey';
 import { Target } from 'lucide-react-native';
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Dimensions,
+  TouchableOpacity,
+  ScrollView,
 } from 'react-native';
 
 interface ShotDiagramProps {
   shots: Shot[];
   players: Player[];
   isOurTeam: boolean;
+  periods?: number;
 }
 
 const NET_WIDTH = Dimensions.get('window').width - 32;
 const NET_HEIGHT = NET_WIDTH * 0.6;
 
-export function ShotDiagram({ shots, players, isOurTeam }: ShotDiagramProps) {
-  const filteredShots = shots.filter(
-    (shot) => shot.isOurTeam === isOurTeam && shot.location
-  );
+export function ShotDiagram({ shots, players, isOurTeam, periods = 3 }: ShotDiagramProps) {
+  const [selectedPeriod, setSelectedPeriod] = useState<number | 'all'>('all');
+  const [selectedPlayers, setSelectedPlayers] = useState<Set<string>>(new Set());
+
+  const teamPlayers = isOurTeam
+    ? players.filter((p) =>
+        shots.some((s) => s.isOurTeam === isOurTeam && s.playerId === p.id)
+      )
+    : [];
+
+  const filteredShots = shots.filter((shot) => {
+    if (shot.isOurTeam !== isOurTeam || !shot.location) return false;
+    if (selectedPeriod !== 'all' && shot.period !== selectedPeriod) return false;
+    if (selectedPlayers.size > 0 && shot.playerId && !selectedPlayers.has(shot.playerId)) {
+      return false;
+    }
+    return true;
+  });
 
   if (filteredShots.length === 0) {
     return (
@@ -62,8 +79,92 @@ export function ShotDiagram({ shots, players, isOurTeam }: ShotDiagramProps) {
     };
   });
 
+  const togglePlayerFilter = (playerId: string) => {
+    const newSelected = new Set(selectedPlayers);
+    if (newSelected.has(playerId)) {
+      newSelected.delete(playerId);
+    } else {
+      newSelected.add(playerId);
+    }
+    setSelectedPlayers(newSelected);
+  };
+
   return (
     <View style={styles.container}>
+      {isOurTeam && teamPlayers.length > 0 && (
+        <View style={styles.filterSection}>
+          <Text style={styles.filterTitle}>Filter by Player:</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.playerFilters}
+          >
+            {teamPlayers.map((player) => {
+              const isSelected = selectedPlayers.has(player.id);
+              return (
+                <TouchableOpacity
+                  key={player.id}
+                  style={[
+                    styles.playerFilterChip,
+                    isSelected && styles.playerFilterChipActive,
+                  ]}
+                  onPress={() => togglePlayerFilter(player.id)}
+                >
+                  <Text
+                    style={[
+                      styles.playerFilterText,
+                      isSelected && styles.playerFilterTextActive,
+                    ]}
+                  >
+                    #{player.jerseyNumber} {player.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
+      {periods > 0 && (
+        <View style={styles.periodSelector}>
+          <TouchableOpacity
+            style={[
+              styles.periodButton,
+              selectedPeriod === 'all' && styles.periodButtonActive,
+            ]}
+            onPress={() => setSelectedPeriod('all')}
+          >
+            <Text
+              style={[
+                styles.periodButtonText,
+                selectedPeriod === 'all' && styles.periodButtonTextActive,
+              ]}
+            >
+              All
+            </Text>
+          </TouchableOpacity>
+          {Array.from({ length: periods }, (_, i) => i + 1).map((period) => (
+            <TouchableOpacity
+              key={period}
+              style={[
+                styles.periodButton,
+                selectedPeriod === period && styles.periodButtonActive,
+              ]}
+              onPress={() => setSelectedPeriod(period)}
+            >
+              <Text
+                style={[
+                  styles.periodButtonText,
+                  selectedPeriod === period && styles.periodButtonTextActive,
+                ]}
+              >
+                P{period}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
       <View style={styles.net}>
         {adjustedShots.map((shot) => {
           if (!shot.location) return null;
@@ -202,5 +303,65 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#8e8e93',
     textAlign: 'center' as const,
+  },
+  filterSection: {
+    marginBottom: 16,
+  },
+  filterTitle: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#1c1c1e',
+    marginBottom: 8,
+  },
+  playerFilters: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingBottom: 4,
+  },
+  playerFilterChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: '#f2f2f7',
+    borderWidth: 1,
+    borderColor: '#e5e5ea',
+  },
+  playerFilterChipActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  playerFilterText: {
+    fontSize: 13,
+    fontWeight: '500' as const,
+    color: '#1c1c1e',
+  },
+  playerFilterTextActive: {
+    color: '#fff',
+  },
+  periodSelector: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+    justifyContent: 'center',
+  },
+  periodButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#f2f2f7',
+    borderWidth: 1,
+    borderColor: '#e5e5ea',
+  },
+  periodButtonActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  periodButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#1c1c1e',
+  },
+  periodButtonTextActive: {
+    color: '#fff',
   },
 });

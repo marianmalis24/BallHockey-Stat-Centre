@@ -173,20 +173,14 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
 
       const newOurScore = goal.isOurTeam ? activeMatch.ourScore + 1 : activeMatch.ourScore;
       const newOpponentScore = !goal.isOurTeam ? activeMatch.opponentScore + 1 : activeMatch.opponentScore;
-      
-      const newOurShots = goal.isOurTeam ? activeMatch.ourShots + 1 : activeMatch.ourShots;
-      const newOpponentShots = !goal.isOurTeam ? activeMatch.opponentShots + 1 : activeMatch.opponentShots;
 
       console.log('Calculated new scores - Our:', newOurScore, 'Opponent:', newOpponentScore);
-      console.log('Calculated new shots - Our:', newOurShots, 'Opponent:', newOpponentShots);
 
       const updatedMatch = {
         ...activeMatch,
         goals: [...activeMatch.goals, newGoal],
         ourScore: newOurScore,
         opponentScore: newOpponentScore,
-        ourShots: newOurShots,
-        opponentShots: newOpponentShots,
       };
 
       console.log('Updated match object:', {
@@ -370,6 +364,7 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
 
   const calculatePlayerStats = useCallback(
     (playerId: string): PlayerStats => {
+      const player = players.find((p) => p.id === playerId);
       const playerMatches = matches.filter((m) =>
         m.roster.some((r) => r.playerId === playerId)
       );
@@ -383,55 +378,99 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
       let penaltyMinutes = 0;
       let faceoffWins = 0;
       let faceoffLosses = 0;
+      let totalRating = 0;
 
       playerMatches.forEach((match) => {
+        let matchGoals = 0;
+        let matchAssists = 0;
+        let matchPlusMinus = 0;
+        let matchShots = 0;
+        let matchPenaltyMinutes = 0;
+        let matchPossessionGains = 0;
+        let matchPossessionLosses = 0;
+        let matchFaceoffWins = 0;
+        let matchFaceoffLosses = 0;
+
         match.goals.forEach((goal) => {
-          if (goal.scorerId === playerId) goals++;
-          if (goal.assists.includes(playerId)) assists++;
-          if (goal.isOurTeam && goal.plusPlayers.includes(playerId)) plusMinus++;
-          if (!goal.isOurTeam && goal.minusPlayers.includes(playerId)) plusMinus--;
+          if (goal.scorerId === playerId) {
+            goals++;
+            matchGoals++;
+          }
+          if (goal.assists.includes(playerId)) {
+            assists++;
+            matchAssists++;
+          }
+          if (goal.isOurTeam && goal.plusPlayers.includes(playerId)) {
+            plusMinus++;
+            matchPlusMinus++;
+          }
+          if (!goal.isOurTeam && goal.minusPlayers.includes(playerId)) {
+            plusMinus--;
+            matchPlusMinus--;
+          }
         });
 
         match.shots.forEach((shot) => {
-          if (shot.playerId === playerId && shot.isOurTeam) shots++;
+          if (shot.playerId === playerId && shot.isOurTeam) {
+            shots++;
+            matchShots++;
+          }
         });
 
         match.possessions.forEach((poss) => {
           if (poss.playerId === playerId) {
-            if (poss.type === 'gain') possessionGains++;
-            else possessionLosses++;
+            if (poss.type === 'gain') {
+              possessionGains++;
+              matchPossessionGains++;
+            } else {
+              possessionLosses++;
+              matchPossessionLosses++;
+            }
           }
         });
 
         match.penalties.forEach((pen) => {
-          if (pen.playerId === playerId) penaltyMinutes += pen.minutes;
+          if (pen.playerId === playerId) {
+            penaltyMinutes += pen.minutes;
+            matchPenaltyMinutes += pen.minutes;
+          }
         });
 
         if (match.faceoffs) {
           match.faceoffs.forEach((faceoff) => {
-            if (faceoff.winnerId === playerId) faceoffWins++;
-            if (faceoff.loserId === playerId) faceoffLosses++;
+            if (faceoff.winnerId === playerId) {
+              faceoffWins++;
+              matchFaceoffWins++;
+            }
+            if (faceoff.loserId === playerId) {
+              faceoffLosses++;
+              matchFaceoffLosses++;
+            }
           });
         }
+
+        const matchShotPercentage = matchShots > 0 ? (matchGoals / matchShots) * 100 : 0;
+        const matchRating = calculateRating(
+          matchGoals,
+          matchAssists,
+          matchPlusMinus,
+          matchShotPercentage,
+          matchPossessionGains,
+          matchPossessionLosses,
+          matchPenaltyMinutes,
+          matchFaceoffWins,
+          matchFaceoffLosses,
+          matchShots,
+          player?.position
+        );
+        totalRating += matchRating;
       });
 
       const points = goals + assists;
       const shotPercentage = shots > 0 ? (goals / shots) * 100 : 0;
       const faceoffTotal = faceoffWins + faceoffLosses;
       const faceoffPercentage = faceoffTotal > 0 ? (faceoffWins / faceoffTotal) * 100 : 0;
-      
-      const rating = calculateRating(
-        goals,
-        assists,
-        plusMinus,
-        shotPercentage,
-        possessionGains,
-        possessionLosses,
-        penaltyMinutes,
-        faceoffWins,
-        faceoffLosses,
-        shots
-      );
+      const averageRating = playerMatches.length > 0 ? totalRating / playerMatches.length : 0;
 
       return {
         playerId,
@@ -448,10 +487,10 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         faceoffWins,
         faceoffLosses,
         faceoffPercentage,
-        rating,
+        rating: averageRating,
       };
     },
-    [matches]
+    [matches, players]
   );
 
   const calculateGoalieStats = useCallback(
@@ -671,8 +710,12 @@ function calculateRating(
   penaltyMinutes: number,
   faceoffWins: number,
   faceoffLosses: number,
-  shots: number
+  shots: number,
+  position?: string
 ): number {
+  if (position === 'goalie') {
+    return 6.0;
+  }
   let rating = 6.0;
 
   const points = goals + assists;
