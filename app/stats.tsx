@@ -1,7 +1,7 @@
 import { useHockey } from '@/contexts/hockey-context';
 import { Stack, router } from 'expo-router';
-import { ChevronLeft, Home } from 'lucide-react-native';
-import React from 'react';
+import { ChevronLeft, Home, ArrowUpDown } from 'lucide-react-native';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -10,17 +10,43 @@ import {
   StyleSheet,
 } from 'react-native';
 
+type SortBy = 'points' | 'goals' | 'assists' | 'plusMinus' | 'shots' | 'rating';
+
 export default function StatsScreen() {
   const { players, calculatePlayerStats, calculateGoalieStats, calculateOpponentStats, matches } = useHockey();
+  const [sortBy, setSortBy] = useState<SortBy>('points');
 
-  const playerStatsData = players
-    .filter((p) => p.position !== 'goalie')
-    .map((p) => ({
-      player: p,
-      stats: calculatePlayerStats(p.id),
-    }))
-    .filter((d) => d.stats.gamesPlayed > 0)
-    .sort((a, b) => b.stats.points - a.stats.points);
+  const sortPlayerData = (data: Array<{ player: any; stats: any }>, sortField: SortBy) => {
+    return [...data].sort((a, b) => {
+      switch (sortField) {
+        case 'points':
+          return b.stats.points - a.stats.points;
+        case 'goals':
+          return b.stats.goals - a.stats.goals;
+        case 'assists':
+          return b.stats.assists - a.stats.assists;
+        case 'plusMinus':
+          return b.stats.plusMinus - a.stats.plusMinus;
+        case 'shots':
+          return b.stats.shots - a.stats.shots;
+        case 'rating':
+          return b.stats.rating - a.stats.rating;
+        default:
+          return 0;
+      }
+    });
+  };
+
+  const playerStatsData = sortPlayerData(
+    players
+      .filter((p) => p.position !== 'goalie')
+      .map((p) => ({
+        player: p,
+        stats: calculatePlayerStats(p.id),
+      }))
+      .filter((d) => d.stats.gamesPlayed > 0),
+    sortBy
+  );
 
   const goalieStatsData = players
     .filter((p) => p.position === 'goalie')
@@ -76,7 +102,45 @@ export default function StatsScreen() {
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Top Skaters</Text>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Top Skaters</Text>
+              </View>
+              
+              <View style={styles.sortContainer}>
+                <View style={styles.sortLabel}>
+                  <ArrowUpDown color="#007AFF" size={16} />
+                  <Text style={styles.sortLabelText}>Sort by:</Text>
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.sortButtons}>
+                    {(['points', 'goals', 'assists', 'plusMinus', 'shots', 'rating'] as SortBy[]).map((option) => (
+                      <TouchableOpacity
+                        key={option}
+                        style={[
+                          styles.sortButton,
+                          sortBy === option && styles.sortButtonActive,
+                        ]}
+                        onPress={() => setSortBy(option)}
+                      >
+                        <Text
+                          style={[
+                            styles.sortButtonText,
+                            sortBy === option && styles.sortButtonTextActive,
+                          ]}
+                        >
+                          {option === 'points' && 'Points'}
+                          {option === 'goals' && 'Goals'}
+                          {option === 'assists' && 'Assists'}
+                          {option === 'plusMinus' && '+/-'}
+                          {option === 'shots' && 'Shots'}
+                          {option === 'rating' && 'Rating'}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </ScrollView>
+              </View>
+
               {playerStatsData.length === 0 ? (
                 <Text style={styles.noData}>No player data available</Text>
               ) : (
@@ -451,5 +515,56 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600' as const,
     color: '#007AFF',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  sortContainer: {
+    marginBottom: 12,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  sortLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  sortLabelText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#007AFF',
+  },
+  sortButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  sortButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#e5e5ea',
+  },
+  sortButtonActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  sortButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#8e8e93',
+  },
+  sortButtonTextActive: {
+    color: '#fff',
   },
 });

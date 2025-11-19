@@ -170,6 +170,10 @@ export default function PlayerProfileScreen() {
                       <Text style={styles.matchStatValue}>{match.assists}</Text>
                     </View>
                     <View style={styles.matchStatItem}>
+                      <Text style={styles.matchStatLabel}>P</Text>
+                      <Text style={styles.matchStatValue}>{match.goals + match.assists}</Text>
+                    </View>
+                    <View style={styles.matchStatItem}>
                       <Text style={styles.matchStatLabel}>+/-</Text>
                       <Text
                         style={[
