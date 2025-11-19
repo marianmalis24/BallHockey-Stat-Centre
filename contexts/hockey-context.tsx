@@ -356,6 +356,18 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
     setActiveMatch(null);
   }, [activeMatch, matches]);
 
+  const deleteMatch = useCallback(
+    (matchId: string) => {
+      const updatedMatches = matches.filter((m) => m.id !== matchId);
+      saveMatches(updatedMatches);
+      
+      if (activeMatch && activeMatch.id === matchId) {
+        setActiveMatch(null);
+      }
+    },
+    [matches, activeMatch]
+  );
+
   const calculatePlayerStats = useCallback(
     (playerId: string): PlayerStats => {
       const playerMatches = matches.filter((m) =>
@@ -635,6 +647,7 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
     addFaceoff,
     nextPeriod,
     endMatch,
+    deleteMatch,
     calculatePlayerStats,
     calculateGoalieStats,
     calculatePlayerMatchHistory,

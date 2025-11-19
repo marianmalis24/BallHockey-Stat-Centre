@@ -1,6 +1,6 @@
 import { useHockey } from '@/contexts/hockey-context';
 import { Stack, router } from 'expo-router';
-import { ChevronLeft } from 'lucide-react-native';
+import { ChevronLeft, Home } from 'lucide-react-native';
 import React from 'react';
 import {
   View,
@@ -48,6 +48,14 @@ export default function StatsScreen() {
       />
 
       <ScrollView contentContainerStyle={styles.content}>
+        <TouchableOpacity 
+          style={styles.homeButton}
+          onPress={() => router.push('/')}
+        >
+          <Home color="#007AFF" size={20} />
+          <Text style={styles.homeButtonText}>Back to Home</Text>
+        </TouchableOpacity>
+
         {completedMatches.length === 0 && (
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>No Match History</Text>
@@ -419,6 +427,27 @@ const styles = StyleSheet.create({
     color: '#1c1c1e',
   },
   opponentRecord: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#007AFF',
+  },
+  homeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    marginBottom: 16,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  homeButtonText: {
     fontSize: 16,
     fontWeight: '600' as const,
     color: '#007AFF',

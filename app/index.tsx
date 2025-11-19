@@ -5,7 +5,7 @@ import { PlayerActionModal } from '@/components/PlayerActionModal';
 import { PeriodSummaryModal } from '@/components/PeriodSummaryModal';
 import { MatchStatsModal } from '@/components/MatchStatsModal';
 import { Stack, router } from 'expo-router';
-import { Plus, Target, Users, BarChart3, AlertCircle, RefreshCw, Clock, TrendingUp, Shield } from 'lucide-react-native';
+import { Plus, Target, Users, BarChart3, AlertCircle, RefreshCw, Clock, TrendingUp, Shield, History } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   View,
@@ -159,6 +159,13 @@ export default function GameScreen() {
           >
             <Shield color="#007AFF" size={20} />
             <Text style={styles.secondaryButtonText}>Manage Opponents</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={() => router.push('/match-history')}
+          >
+            <History color="#007AFF" size={20} />
+            <Text style={styles.secondaryButtonText}>Match History</Text>
           </TouchableOpacity>
         </View>
       </View>
