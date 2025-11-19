@@ -87,7 +87,7 @@ export default function StatsScreen() {
         options={{
           title: 'Statistics',
           headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.push('/')} style={styles.backButton}>
               <ChevronLeft color="#007AFF" size={28} />
             </TouchableOpacity>
           ),
