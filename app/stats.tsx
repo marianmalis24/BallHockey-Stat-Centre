@@ -11,30 +11,49 @@ import {
 } from 'react-native';
 
 type SortBy = 'points' | 'goals' | 'assists' | 'plusMinus' | 'shots' | 'rating';
+type SortOrder = 'desc' | 'asc';
 
 export default function StatsScreen() {
   const { players, calculatePlayerStats, calculateGoalieStats, calculateOpponentStats, matches } = useHockey();
   const [sortBy, setSortBy] = useState<SortBy>('points');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
-  const sortPlayerData = (data: Array<{ player: any; stats: any }>, sortField: SortBy) => {
+  const sortPlayerData = (data: Array<{ player: any; stats: any }>, sortField: SortBy, order: SortOrder) => {
     return [...data].sort((a, b) => {
+      let comparison = 0;
       switch (sortField) {
         case 'points':
-          return b.stats.points - a.stats.points;
+          comparison = b.stats.points - a.stats.points;
+          break;
         case 'goals':
-          return b.stats.goals - a.stats.goals;
+          comparison = b.stats.goals - a.stats.goals;
+          break;
         case 'assists':
-          return b.stats.assists - a.stats.assists;
+          comparison = b.stats.assists - a.stats.assists;
+          break;
         case 'plusMinus':
-          return b.stats.plusMinus - a.stats.plusMinus;
+          comparison = b.stats.plusMinus - a.stats.plusMinus;
+          break;
         case 'shots':
-          return b.stats.shots - a.stats.shots;
+          comparison = b.stats.shots - a.stats.shots;
+          break;
         case 'rating':
-          return b.stats.rating - a.stats.rating;
+          comparison = b.stats.rating - a.stats.rating;
+          break;
         default:
-          return 0;
+          comparison = 0;
       }
+      return order === 'desc' ? comparison : -comparison;
     });
+  };
+
+  const handleSortChange = (option: SortBy) => {
+    if (sortBy === option) {
+      setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
+    } else {
+      setSortBy(option);
+      setSortOrder('desc');
+    }
   };
 
   const playerStatsData = sortPlayerData(
@@ -45,7 +64,8 @@ export default function StatsScreen() {
         stats: calculatePlayerStats(p.id),
       }))
       .filter((d) => d.stats.gamesPlayed > 0),
-    sortBy
+    sortBy,
+    sortOrder
   );
 
   const goalieStatsData = players
@@ -120,7 +140,7 @@ export default function StatsScreen() {
                           styles.sortButton,
                           sortBy === option && styles.sortButtonActive,
                         ]}
-                        onPress={() => setSortBy(option)}
+                        onPress={() => handleSortChange(option)}
                       >
                         <Text
                           style={[
@@ -134,6 +154,7 @@ export default function StatsScreen() {
                           {option === 'plusMinus' && '+/-'}
                           {option === 'shots' && 'Shots'}
                           {option === 'rating' && 'Rating'}
+                          {sortBy === option && (sortOrder === 'desc' ? ' ↓' : ' ↑')}
                         </Text>
                       </TouchableOpacity>
                     ))}
@@ -566,5 +587,6 @@ const styles = StyleSheet.create({
   },
   sortButtonTextActive: {
     color: '#fff',
+    fontWeight: '700' as const,
   },
 });
