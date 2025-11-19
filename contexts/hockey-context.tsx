@@ -429,7 +429,8 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         possessionLosses,
         penaltyMinutes,
         faceoffWins,
-        faceoffLosses
+        faceoffLosses,
+        shots
       );
 
       return {
@@ -498,8 +499,23 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
       });
 
       const savePercentage = shotsAgainst > 0 ? (saves / shotsAgainst) * 100 : 0;
-      const baseRating = savePercentage / 10;
-      const rating = 6.0 + (baseRating / 10) * 4.0;
+      
+      let rating = 6.0;
+      if (shotsAgainst > 0) {
+        if (savePercentage >= 95) rating = 9.5;
+        else if (savePercentage >= 92) rating = 9.0;
+        else if (savePercentage >= 90) rating = 8.5;
+        else if (savePercentage >= 87) rating = 8.0;
+        else if (savePercentage >= 85) rating = 7.5;
+        else if (savePercentage >= 82) rating = 7.0;
+        else if (savePercentage >= 80) rating = 6.5;
+        else if (savePercentage >= 75) rating = 6.0;
+        else if (savePercentage >= 70) rating = 5.5;
+        else if (savePercentage >= 65) rating = 5.0;
+        else if (savePercentage >= 60) rating = 4.5;
+        else if (savePercentage >= 55) rating = 4.0;
+        else rating = Math.max(0, 3.0 + (savePercentage - 50) * 0.02);
+      }
 
       return {
         playerId,
@@ -543,7 +559,6 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
             if (pen.playerId === playerId) penaltyMinutes += pen.minutes;
           });
 
-          const points = goals + assists;
           const shotPercentage = shots > 0 ? (goals / shots) * 100 : 0;
 
           let possessionGains = 0;
@@ -573,7 +588,8 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
             possessionLosses,
             penaltyMinutes,
             faceoffWins,
-            faceoffLosses
+            faceoffLosses,
+            shots
           );
 
           return {
@@ -664,30 +680,52 @@ function calculateRating(
   possessionLosses: number,
   penaltyMinutes: number,
   faceoffWins: number,
-  faceoffLosses: number
+  faceoffLosses: number,
+  shots: number
 ): number {
-  const offensiveRating = (goals * 2 + assists * 1.5) / Math.max(1, goals + assists) * 2;
-  const efficiencyRating = shotPercentage / 10;
-  const plusMinusRating = Math.max(0, Math.min(10, 5 + plusMinus * 0.5));
-  const possessionRating =
-    possessionGains > 0
-      ? Math.min(10, (possessionGains / (possessionGains + possessionLosses)) * 10)
-      : 5;
-  const disciplineRating = Math.max(0, 10 - penaltyMinutes * 0.5);
-  
+  let rating = 6.0;
+
+  const points = goals + assists;
+  if (points >= 4) rating += 2.5;
+  else if (points >= 3) rating += 2.0;
+  else if (points >= 2) rating += 1.5;
+  else if (points >= 1) rating += 0.8;
+  else if (points === 0) rating -= 0.3;
+
+  if (plusMinus >= 3) rating += 1.5;
+  else if (plusMinus >= 2) rating += 1.0;
+  else if (plusMinus >= 1) rating += 0.5;
+  else if (plusMinus === 0) rating += 0;
+  else if (plusMinus === -1) rating -= 0.5;
+  else if (plusMinus === -2) rating -= 1.2;
+  else if (plusMinus <= -3) rating -= 2.0;
+
+  if (shots > 0) {
+    if (shotPercentage >= 30) rating += 0.8;
+    else if (shotPercentage >= 20) rating += 0.5;
+    else if (shotPercentage >= 10) rating += 0.2;
+    else if (shotPercentage < 10 && shots >= 5) rating -= 0.3;
+  }
+
+  if (possessionGains + possessionLosses > 0) {
+    const possessionRatio = possessionGains / (possessionGains + possessionLosses);
+    if (possessionRatio >= 0.7) rating += 0.5;
+    else if (possessionRatio >= 0.6) rating += 0.3;
+    else if (possessionRatio < 0.4) rating -= 0.3;
+  }
+
+  if (penaltyMinutes >= 10) rating -= 1.5;
+  else if (penaltyMinutes >= 6) rating -= 1.0;
+  else if (penaltyMinutes >= 4) rating -= 0.6;
+  else if (penaltyMinutes >= 2) rating -= 0.3;
+
   const faceoffTotal = faceoffWins + faceoffLosses;
-  const faceoffRating = faceoffTotal > 0 ? (faceoffWins / faceoffTotal) * 10 : 5;
+  if (faceoffTotal >= 5) {
+    const faceoffPct = (faceoffWins / faceoffTotal) * 100;
+    if (faceoffPct >= 60) rating += 0.6;
+    else if (faceoffPct >= 55) rating += 0.3;
+    else if (faceoffPct < 40) rating -= 0.4;
+  }
 
-  const baseRating =
-    (offensiveRating * 0.3 +
-      efficiencyRating * 0.2 +
-      plusMinusRating * 0.2 +
-      possessionRating * 0.1 +
-      disciplineRating * 0.1 +
-      faceoffRating * 0.1) *
-    1.0;
-
-  const scaledRating = 6.0 + (baseRating / 10) * 4.0;
-  
-  return Math.min(10, Math.max(0, scaledRating));
+  return Math.min(10, Math.max(0, rating));
 }
