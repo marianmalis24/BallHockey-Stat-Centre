@@ -502,19 +502,9 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
       
       let rating = 6.0;
       if (shotsAgainst > 0) {
-        if (savePercentage >= 95) rating = 9.5;
-        else if (savePercentage >= 92) rating = 9.0;
-        else if (savePercentage >= 90) rating = 8.5;
-        else if (savePercentage >= 87) rating = 8.0;
-        else if (savePercentage >= 85) rating = 7.5;
-        else if (savePercentage >= 82) rating = 7.0;
-        else if (savePercentage >= 80) rating = 6.5;
-        else if (savePercentage >= 75) rating = 6.0;
-        else if (savePercentage >= 70) rating = 5.5;
-        else if (savePercentage >= 65) rating = 5.0;
-        else if (savePercentage >= 60) rating = 4.5;
-        else if (savePercentage >= 55) rating = 4.0;
-        else rating = Math.max(0, 3.0 + (savePercentage - 50) * 0.02);
+        const savesBonus = saves * 0.02;
+        const goalsAgainstPenalty = goalsAgainst * 0.16;
+        rating = rating + savesBonus - goalsAgainstPenalty;
       }
 
       return {
@@ -714,10 +704,10 @@ function calculateRating(
     else if (possessionRatio < 0.4) rating -= 0.3;
   }
 
-  if (penaltyMinutes >= 10) rating -= 1.5;
-  else if (penaltyMinutes >= 6) rating -= 1.0;
-  else if (penaltyMinutes >= 4) rating -= 0.6;
-  else if (penaltyMinutes >= 2) rating -= 0.3;
+  if (penaltyMinutes >= 10) rating -= 2.5;
+  else if (penaltyMinutes >= 6) rating -= 1.8;
+  else if (penaltyMinutes >= 4) rating -= 1.2;
+  else if (penaltyMinutes >= 2) rating -= 0.7;
 
   const faceoffTotal = faceoffWins + faceoffLosses;
   if (faceoffTotal >= 5) {
