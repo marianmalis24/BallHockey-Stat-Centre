@@ -1,6 +1,7 @@
 import { useHockey } from '@/contexts/hockey-context';
 import { X } from 'lucide-react-native';
 import React from 'react';
+import { getRatingColor } from '@/constants/colors';
 import {
   View,
   Text,
@@ -242,7 +243,7 @@ export function MatchStatsModal({ visible, onClose }: MatchStatsModalProps) {
                     <Text style={[styles.tableCell, styles.statColumn, styles.faceoffColumn]}>
                       {faceoffDisplay}
                     </Text>
-                    <Text style={[styles.tableCell, styles.statColumn]}>
+                    <Text style={[styles.tableCell, styles.statColumn, { color: getRatingColor(stats.rating) }]}>
                       {stats.rating.toFixed(1)}
                     </Text>
                   </View>
@@ -297,7 +298,7 @@ export function MatchStatsModal({ visible, onClose }: MatchStatsModalProps) {
                       <Text style={[styles.tableCell, styles.statColumn]}>
                         {savePercentage}%
                       </Text>
-                      <Text style={[styles.tableCell, styles.statColumn]}>
+                      <Text style={[styles.tableCell, styles.statColumn, { color: getRatingColor(stats.rating) }]}>
                         {stats.rating.toFixed(1)}
                       </Text>
                     </View>
