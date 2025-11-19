@@ -1,5 +1,6 @@
 import { useOpponents } from '@/contexts/opponents-context';
-import { Stack } from 'expo-router';
+import { useHockey } from '@/contexts/hockey-context';
+import { Stack, router } from 'expo-router';
 import { Plus, Trash2, Shield } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
@@ -14,7 +15,10 @@ import {
 
 export default function OpponentsScreen() {
   const { opponents, addOpponent, deleteOpponent } = useOpponents();
+  const { calculateOpponentStats } = useHockey();
   const [newOpponentName, setNewOpponentName] = useState('');
+
+  const opponentStats = calculateOpponentStats();
 
   const handleAddOpponent = () => {
     if (!newOpponentName.trim()) {
@@ -77,25 +81,40 @@ export default function OpponentsScreen() {
             data={opponents}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
-            renderItem={({ item }) => (
-              <View style={styles.opponentCard}>
-                <View style={styles.opponentIcon}>
-                  <Shield color="#007AFF" size={24} />
-                </View>
-                <View style={styles.opponentInfo}>
-                  <Text style={styles.opponentName}>{item.name}</Text>
-                  <Text style={styles.opponentDate}>
-                    Added {new Date(item.createdAt).toLocaleDateString()}
-                  </Text>
-                </View>
+            renderItem={({ item }) => {
+              const stats = opponentStats.find((s) => s.opponentName === item.name);
+              return (
                 <TouchableOpacity
-                  style={styles.deleteButton}
-                  onPress={() => handleDeleteOpponent(item.id, item.name)}
+                  style={styles.opponentCard}
+                  onPress={() => router.push(`/opponent-detail?opponentName=${encodeURIComponent(item.name)}`)}
                 >
-                  <Trash2 color="#FF3B30" size={20} />
+                  <View style={styles.opponentIcon}>
+                    <Shield color="#007AFF" size={24} />
+                  </View>
+                  <View style={styles.opponentInfo}>
+                    <Text style={styles.opponentName}>{item.name}</Text>
+                    {stats ? (
+                      <Text style={styles.opponentStats}>
+                        {stats.wins}W - {stats.draws}D - {stats.losses}L • {stats.gamesPlayed} games
+                      </Text>
+                    ) : (
+                      <Text style={styles.opponentDate}>
+                        Added {new Date(item.createdAt).toLocaleDateString()}
+                      </Text>
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleDeleteOpponent(item.id, item.name);
+                    }}
+                  >
+                    <Trash2 color="#FF3B30" size={20} />
+                  </TouchableOpacity>
                 </TouchableOpacity>
-              </View>
-            )}
+              );
+            }}
           />
         )}
       </View>
@@ -177,6 +196,11 @@ const styles = StyleSheet.create({
   opponentDate: {
     fontSize: 13,
     color: '#8e8e93',
+  },
+  opponentStats: {
+    fontSize: 13,
+    color: '#007AFF',
+    fontWeight: '500' as const,
   },
   deleteButton: {
     padding: 8,

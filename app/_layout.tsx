@@ -19,6 +19,9 @@ function RootLayoutNav() {
       <Stack.Screen name="stats" />
       <Stack.Screen name="opponents" />
       <Stack.Screen name="player-profile" />
+      <Stack.Screen name="match-history" />
+      <Stack.Screen name="opponent-detail" />
+      <Stack.Screen name="match-detail" />
     </Stack>
   );
 }
