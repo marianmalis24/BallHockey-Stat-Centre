@@ -24,11 +24,13 @@ export function ShotDiagram({ shots, players, isOurTeam, periods = 3 }: ShotDiag
   const [selectedPeriod, setSelectedPeriod] = useState<number | 'all'>('all');
   const [selectedPlayers, setSelectedPlayers] = useState<Set<string>>(new Set());
 
-  const teamPlayers = isOurTeam
-    ? players.filter((p) =>
-        shots.some((s) => s.isOurTeam === isOurTeam && s.playerId === p.id)
-      )
-    : [];
+  if (!isOurTeam) {
+    return null;
+  }
+
+  const teamPlayers = players.filter((p) =>
+    shots.some((s) => s.isOurTeam === isOurTeam && s.playerId === p.id)
+  );
 
   const filteredShots = shots.filter((shot) => {
     if (shot.isOurTeam !== isOurTeam || !shot.location) return false;
@@ -38,14 +40,6 @@ export function ShotDiagram({ shots, players, isOurTeam, periods = 3 }: ShotDiag
     }
     return true;
   });
-
-  if (filteredShots.length === 0) {
-    return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>No shots on target recorded</Text>
-      </View>
-    );
-  }
 
   const adjustedShots = filteredShots.map((shot, index) => {
     if (!shot.location) return shot;
