@@ -16,7 +16,7 @@ interface GoalModalProps {
   visible: boolean;
   isOurTeam: boolean;
   onClose: () => void;
-  onOpenShotModal?: () => void;
+  onOpenShotModal?: (scorerId: string) => void;
 }
 
 const NET_WIDTH = Dimensions.get('window').width - 32;
@@ -94,8 +94,8 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
     resetAndClose();
     
     if (isOurTeam && onOpenShotModal && scorer) {
-      console.log('GoalModal: Opening shot modal for goal shot location');
-      onOpenShotModal();
+      console.log('GoalModal: Opening shot modal for goal shot location with scorer:', scorer);
+      onOpenShotModal(scorer);
     }
     console.log('=== GoalModal handleSave finished ===');
   };

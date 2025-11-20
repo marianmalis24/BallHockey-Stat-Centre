@@ -28,8 +28,13 @@ export function ShotModal({ visible, isOurTeam, onClose, preselectedScorer, isGo
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(preselectedScorer || null);
 
   React.useEffect(() => {
-    if (visible && preselectedScorer) {
-      setSelectedPlayer(preselectedScorer);
+    if (visible) {
+      if (preselectedScorer) {
+        setSelectedPlayer(preselectedScorer);
+      }
+    } else {
+      setLocation(null);
+      setSelectedPlayer(null);
     }
   }, [visible, preselectedScorer]);
 
@@ -57,8 +62,10 @@ export function ShotModal({ visible, isOurTeam, onClose, preselectedScorer, isGo
   };
 
   const resetAndClose = () => {
-    setLocation(null);
-    setSelectedPlayer(null);
+    setTimeout(() => {
+      setLocation(null);
+      setSelectedPlayer(null);
+    }, 300);
     onClose();
   };
 

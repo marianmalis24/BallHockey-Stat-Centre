@@ -348,10 +348,9 @@ export default function GameScreen() {
         visible={goalModalVisible}
         isOurTeam={goalType === 'our'}
         onClose={() => setGoalModalVisible(false)}
-        onOpenShotModal={() => {
-          if (!activeMatch || !activeMatch.goals.length) return;
-          const lastGoal = activeMatch.goals[activeMatch.goals.length - 1];
-          setPendingGoalScorerId(lastGoal.scorerId);
+        onOpenShotModal={(scorerId) => {
+          console.log('Opening shot modal with scorer ID:', scorerId);
+          setPendingGoalScorerId(scorerId);
           setIsGoalShotMode(true);
           setShotModalVisible(true);
         }}
