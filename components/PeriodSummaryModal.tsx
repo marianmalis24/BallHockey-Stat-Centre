@@ -261,7 +261,7 @@ export function PeriodSummaryModal({
                </View>
                <View style={styles.net}>
                   {match.shots.filter(s => s.isOurTeam && s.onGoal && s.location).map((shot, index) => {
-                     const isGoal = match.goals.some(g => g.timestamp === shot.timestamp);
+                     const isGoal = shot.result === 'goal';
                      const player = shot.playerId ? players.find(p => p.id === shot.playerId) : null;
                      return (
                         <View
@@ -276,7 +276,7 @@ export function PeriodSummaryModal({
                         >
                            <View style={[
                               styles.shotCircle,
-                              { backgroundColor: isGoal ? '#34C759' : '#007AFF' }
+                              { backgroundColor: isGoal ? '#34C759' : '#007AFF', borderColor: isGoal ? '#28A745' : '#0051D5' }
                            ]}>
                               {player && (
                                  <Text style={styles.shotPlayerNumber}>

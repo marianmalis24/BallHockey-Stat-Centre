@@ -64,18 +64,6 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
 
     console.log('GoalModal: All validations passed, calling addGoal');
     
-    if (!isOurTeam) {
-      console.log('GoalModal: Adding shot for opponent goal');
-      addShot({
-        playerId: undefined,
-        location: undefined,
-        isOurTeam: false,
-        onGoal: true,
-        result: 'goal',
-      });
-      console.log('GoalModal: addShot function called for opponent');
-    }
-    
     const goalData = {
       scorerId: scorer || '',
       assists: assists,
@@ -89,6 +77,18 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
     
     addGoal(goalData);
     console.log('GoalModal: addGoal function called');
+    
+    if (!isOurTeam) {
+      console.log('GoalModal: Adding shot for opponent goal');
+      addShot({
+        playerId: undefined,
+        location: undefined,
+        isOurTeam: false,
+        onGoal: true,
+        result: 'goal',
+      });
+      console.log('GoalModal: addShot function called for opponent');
+    }
 
     console.log('GoalModal: Closing modal');
     resetAndClose();
