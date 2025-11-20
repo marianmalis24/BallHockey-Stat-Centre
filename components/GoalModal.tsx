@@ -93,7 +93,7 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
     console.log('GoalModal: Closing modal');
     resetAndClose();
     
-    if (isOurTeam && onOpenShotModal) {
+    if (isOurTeam && onOpenShotModal && scorer) {
       console.log('GoalModal: Opening shot modal for goal shot location');
       onOpenShotModal();
     }

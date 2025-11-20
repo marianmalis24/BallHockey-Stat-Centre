@@ -211,11 +211,11 @@ export function ShotDiagram({ shots, players, isOurTeam, periods = 3 }: ShotDiag
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendCircle, styles.goalCircle]} />
-          <Text style={styles.legendText}>Goal</Text>
+          <Text style={styles.legendText}>Goal (Green)</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendCircle, styles.saveCircle]} />
-          <Text style={styles.legendText}>Save</Text>
+          <Text style={styles.legendText}>Save (Blue)</Text>
         </View>
       </View>
     </View>
@@ -250,8 +250,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   goalCircle: {
-    backgroundColor: '#FFD700',
-    borderColor: '#FFB800',
+    backgroundColor: '#34C759',
+    borderColor: '#28A745',
   },
   saveCircle: {
     backgroundColor: '#007AFF',
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
   },
   goalText: {
-    color: '#1c1c1e',
+    color: '#fff',
   },
   saveText: {
     color: '#fff',
