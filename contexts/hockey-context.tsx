@@ -176,11 +176,26 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
 
       console.log('Calculated new scores - Our:', newOurScore, 'Opponent:', newOpponentScore);
 
+      const goalShot: Shot = {
+        id: (Date.now() + 1).toString(),
+        timestamp: Date.now() + 1,
+        playerId: goal.scorerId,
+        location: undefined,
+        isOurTeam: goal.isOurTeam,
+        onGoal: true,
+        result: 'goal',
+        goalieId: !goal.isOurTeam ? activeMatch.activeGoalieId : undefined,
+        period: activeMatch.currentPeriod || 1,
+      };
+
       const updatedMatch = {
         ...activeMatch,
         goals: [...activeMatch.goals, newGoal],
+        shots: [...activeMatch.shots, goalShot],
         ourScore: newOurScore,
         opponentScore: newOpponentScore,
+        ourShots: goal.isOurTeam ? activeMatch.ourShots + 1 : activeMatch.ourShots,
+        opponentShots: !goal.isOurTeam ? activeMatch.opponentShots + 1 : activeMatch.opponentShots,
       };
 
       console.log('Updated match object:', {
@@ -198,14 +213,8 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
       console.log('Saving to storage and updating state');
       console.log('Updated matches array:', updatedMatches.map(m => ({ id: m.id, ourScore: m.ourScore, opponentScore: m.opponentScore })));
       
+      saveMatches(updatedMatches);
       setActiveMatch(updatedMatch);
-      setMatches(updatedMatches);
-      
-      AsyncStorage.setItem(MATCHES_KEY, JSON.stringify(updatedMatches)).then(() => {
-        console.log('Successfully saved to AsyncStorage');
-      }).catch((error) => {
-        console.error('Failed to save to AsyncStorage:', error);
-      });
       
       console.log('State updated. New activeMatch scores should be:', updatedMatch.ourScore, updatedMatch.opponentScore);
       console.log('=== ADD GOAL END ===');

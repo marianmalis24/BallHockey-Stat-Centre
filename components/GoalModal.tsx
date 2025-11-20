@@ -23,7 +23,7 @@ const NET_WIDTH = Dimensions.get('window').width - 32;
 const NET_HEIGHT = NET_WIDTH * 0.6;
 
 export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: GoalModalProps) {
-  const { players, activeMatch, addGoal, addShot } = useHockey();
+  const { players, activeMatch, addGoal } = useHockey();
   const [scorer, setScorer] = useState<string | null>(null);
   const [assists, setAssists] = useState<string[]>([]);
   const [plusPlayers, setPlusPlayers] = useState<string[]>([]);
@@ -76,22 +76,8 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
     console.log('GoalModal: About to call addGoal function');
     
     addGoal(goalData);
-    console.log('GoalModal: addGoal function called');
-    console.log('GoalModal: After addGoal - this will add goal to counter');
-    
-    if (!isOurTeam) {
-      console.log('GoalModal: Opponent scored - adding shot for opponent goal');
-      console.log('GoalModal: This shot should increment opponent shots counter');
-      addShot({
-        playerId: undefined,
-        location: undefined,
-        isOurTeam: false,
-        onGoal: true,
-        result: 'goal',
-      });
-      console.log('GoalModal: addShot function called for opponent');
-      console.log('GoalModal: Both goal counter AND shot counter should be incremented now');
-    }
+    console.log('GoalModal: addGoal function called (includes automatic shot recording)');
+    console.log('GoalModal: Both goal and shot counters will be updated by addGoal');
 
     console.log('GoalModal: Closing modal');
     resetAndClose();
