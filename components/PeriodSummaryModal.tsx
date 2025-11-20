@@ -252,27 +252,41 @@ export function PeriodSummaryModal({
                <View style={styles.legend}>
                   <View style={styles.legendItem}>
                      <View style={[styles.legendDot, { backgroundColor: '#34C759' }]} />
-                     <Text style={styles.legendText}>Goal</Text>
+                     <Text style={styles.legendText}>Goal (Green)</Text>
                   </View>
                   <View style={styles.legendItem}>
                      <View style={[styles.legendDot, { backgroundColor: '#007AFF' }]} />
-                     <Text style={styles.legendText}>Shot</Text>
+                     <Text style={styles.legendText}>Save (Blue)</Text>
                   </View>
                </View>
                <View style={styles.net}>
-                  {match.shots.filter(s => s.isOurTeam && s.onGoal && s.location).map((shot, index) => (
-                     <View
-                        key={shot.id}
-                        style={[
-                           styles.shotMarker,
-                           {
-                              left: (shot.location!.x * NET_WIDTH) - 6,
-                              top: (shot.location!.y * NET_HEIGHT) - 6,
-                              backgroundColor: match.goals.some(g => g.timestamp === shot.timestamp) ? '#34C759' : '#007AFF' 
-                           }
-                        ]}
-                     />
-                  ))}
+                  {match.shots.filter(s => s.isOurTeam && s.onGoal && s.location).map((shot, index) => {
+                     const isGoal = match.goals.some(g => g.timestamp === shot.timestamp);
+                     const player = shot.playerId ? players.find(p => p.id === shot.playerId) : null;
+                     return (
+                        <View
+                           key={shot.id}
+                           style={[
+                              styles.shotMarker,
+                              {
+                                 left: (shot.location!.x * NET_WIDTH) - 16,
+                                 top: (shot.location!.y * NET_HEIGHT) - 16,
+                              }
+                           ]}
+                        >
+                           <View style={[
+                              styles.shotCircle,
+                              { backgroundColor: isGoal ? '#34C759' : '#007AFF' }
+                           ]}>
+                              {player && (
+                                 <Text style={styles.shotPlayerNumber}>
+                                    {player.jerseyNumber}
+                                 </Text>
+                              )}
+                           </View>
+                        </View>
+                     );
+                  })}
                </View>
                <Text style={styles.hintText}>Showing shots on target from our team</Text>
             </View>
@@ -448,12 +462,23 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   shotMarker: {
-    position: 'absolute',
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 1,
+    position: 'absolute' as const,
+    width: 32,
+    height: 32,
+  },
+  shotCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
     borderColor: '#fff',
+  },
+  shotPlayerNumber: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: '#fff',
   },
   hintText: {
     fontSize: 12,
