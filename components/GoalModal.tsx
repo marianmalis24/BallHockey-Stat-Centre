@@ -77,9 +77,11 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
     
     addGoal(goalData);
     console.log('GoalModal: addGoal function called');
+    console.log('GoalModal: After addGoal - this will add goal to counter');
     
     if (!isOurTeam) {
-      console.log('GoalModal: Adding shot for opponent goal');
+      console.log('GoalModal: Opponent scored - adding shot for opponent goal');
+      console.log('GoalModal: This shot should increment opponent shots counter');
       addShot({
         playerId: undefined,
         location: undefined,
@@ -88,6 +90,7 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
         result: 'goal',
       });
       console.log('GoalModal: addShot function called for opponent');
+      console.log('GoalModal: Both goal counter AND shot counter should be incremented now');
     }
 
     console.log('GoalModal: Closing modal');
