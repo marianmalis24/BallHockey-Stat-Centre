@@ -31,27 +31,35 @@ export function PeriodSummaryModal({
   onNextPeriod,
 }: PeriodSummaryModalProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'shots' | 'players'>('overview');
+  const [showFullMatch, setShowFullMatch] = useState(false);
 
-  // Calculate stats for current match
+  // Calculate stats for current period or full match
   const stats = useMemo(() => {
     if (!match) return null;
 
-    const ourGoals = match.goals.filter((g) => g.isOurTeam).length;
-    const opponentGoals = match.goals.filter((g) => !g.isOurTeam).length;
+    const isMatchOver = match.currentPeriod >= 3;
+    const filterPeriod = (showFullMatch && isMatchOver) ? null : match.currentPeriod;
+
+    const goalsToCount = filterPeriod ? match.goals.filter(g => g.period === filterPeriod) : match.goals;
+    const shotsToCount = filterPeriod ? match.shots.filter(s => s.period === filterPeriod) : match.shots;
+    const faceoffsToCount = filterPeriod ? match.faceoffs.filter(f => f.period === filterPeriod) : match.faceoffs;
+    const penaltiesToCount = filterPeriod ? match.penalties.filter(p => p.period === filterPeriod) : match.penalties;
+    const possessionsToCount = filterPeriod ? match.possessions.filter(p => p.period === filterPeriod) : match.possessions;
+
+    const ourGoals = goalsToCount.filter((g) => g.isOurTeam).length;
+    const opponentGoals = goalsToCount.filter((g) => !g.isOurTeam).length;
     
-    const ourShots = match.shots.filter((s) => s.isOurTeam).length;
-    const opponentShots = match.shots.filter((s) => !s.isOurTeam).length;
+    const ourShots = shotsToCount.filter((s) => s.isOurTeam).length;
+    const opponentShots = shotsToCount.filter((s) => !s.isOurTeam).length;
 
     // Faceoffs
     let ourFaceoffWins = 0;
     let ourFaceoffLosses = 0;
-    match.faceoffs.forEach((f) => {
-      // If winner is in our roster (we assume roster only has our players)
+    faceoffsToCount.forEach((f) => {
       const winnerIsUs = match.roster.some((r) => r.playerId === f.winnerId);
       if (winnerIsUs) {
         ourFaceoffWins++;
       } else {
-        // If we didn't win, did we lose? Check if loser is us
         const loserIsUs = match.roster.some((r) => r.playerId === f.loserId);
         if (loserIsUs) {
           ourFaceoffLosses++;
@@ -64,13 +72,12 @@ export function PeriodSummaryModal({
 
     // PIMs
     let ourPIM = 0;
-    match.penalties.forEach((p) => {
+    penaltiesToCount.forEach((p) => {
       const isUs = match.roster.some((r) => r.playerId === p.playerId);
       if (isUs) {
         ourPIM += p.minutes;
       }
     });
-    // We don't track opponent PIMs explicitly unless we have them in roster or separate tracking
     
     // Top Players
     const playerRatings = match.roster
@@ -80,18 +87,18 @@ export function PeriodSummaryModal({
         })
         .map(r => {
         const pid = r.playerId;
-        const pGoals = match.goals.filter(g => g.scorerId === pid).length;
-        const pAssists = match.goals.filter(g => g.assists.includes(pid)).length;
+        const pGoals = goalsToCount.filter(g => g.scorerId === pid).length;
+        const pAssists = goalsToCount.filter(g => g.assists.includes(pid)).length;
         let pPlusMinus = 0;
-        match.goals.forEach(g => {
+        goalsToCount.forEach(g => {
             if (g.isOurTeam && g.plusPlayers.includes(pid)) pPlusMinus++;
             if (!g.isOurTeam && g.minusPlayers.includes(pid)) pPlusMinus--;
         });
-        const pShots = match.shots.filter(s => s.playerId === pid && s.isOurTeam).length;
+        const pShots = shotsToCount.filter(s => s.playerId === pid && s.isOurTeam).length;
         
         let pPossGain = 0; 
         let pPossLoss = 0;
-        match.possessions.forEach(poss => {
+        possessionsToCount.forEach(poss => {
             if (poss.playerId === pid) {
                 if (poss.type === 'gain') pPossGain++;
                 else pPossLoss++;
@@ -99,20 +106,18 @@ export function PeriodSummaryModal({
         });
 
         let pPIM = 0;
-        match.penalties.filter(pen => pen.playerId === pid).forEach(pen => pPIM += pen.minutes);
+        penaltiesToCount.filter(pen => pen.playerId === pid).forEach(pen => pPIM += pen.minutes);
 
         let pFW = 0;
         let pFL = 0;
-        match.faceoffs.forEach(f => {
+        faceoffsToCount.forEach(f => {
             if (f.winnerId === pid) pFW++;
             if (f.loserId === pid) pFL++;
         });
 
-        // Simple rating calculation for this match
         const points = pGoals + pAssists;
         const shotPct = pShots > 0 ? (pGoals / pShots) * 100 : 0;
         
-        // Reusing the rating logic roughly
         const offRating = (pGoals * 2 + pAssists * 1.5) / Math.max(1, points) * 2;
         const effRating = shotPct / 10;
         const pmRating = Math.max(0, Math.min(10, 5 + pPlusMinus * 0.5));
@@ -146,24 +151,36 @@ export function PeriodSummaryModal({
       ourPIM,
       playerRatings
     };
-  }, [match, players]);
+  }, [match, players, showFullMatch]);
 
   if (!match || !stats) return null;
 
-  const isMatchOver = match.currentPeriod >= 3 && match.ourScore !== match.opponentScore;
+  const isMatchOver = match.currentPeriod >= 3;
+  const filterPeriod = (showFullMatch && isMatchOver) ? null : match.currentPeriod;
+  const shotsToDisplay = filterPeriod ? match.shots.filter(s => s.period === filterPeriod) : match.shots;
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <View style={styles.container}>
         <View style={styles.header}>
-          <View>
+          <View style={{ flex: 1 }}>
              <Text style={styles.headerTitle}>
-               {isMatchOver ? 'Match Summary' : `End of Period ${match.currentPeriod}`}
+               {isMatchOver ? (showFullMatch ? 'Full Match Stats' : `Period ${match.currentPeriod} Summary`) : `End of Period ${match.currentPeriod}`}
              </Text>
              <Text style={styles.headerSubtitle}>
                {match.ourScore} - {match.opponentScore}
              </Text>
           </View>
+          {isMatchOver && (
+            <TouchableOpacity 
+              style={styles.toggleButton} 
+              onPress={() => setShowFullMatch(!showFullMatch)}
+            >
+              <Text style={styles.toggleButtonText}>
+                {showFullMatch ? `P${match.currentPeriod}` : 'Full'}
+              </Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <X color="#1c1c1e" size={24} />
           </TouchableOpacity>
@@ -260,7 +277,7 @@ export function PeriodSummaryModal({
                   </View>
                </View>
                <View style={styles.net}>
-                  {match.shots.filter(s => s.isOurTeam && s.onGoal && s.location).map((shot, index) => {
+                  {shotsToDisplay.filter(s => s.isOurTeam && s.onGoal && s.location).map((shot, index) => {
                      const isGoal = shot.result === 'goal';
                      const player = shot.playerId ? players.find(p => p.id === shot.playerId) : null;
                      return (
@@ -288,7 +305,9 @@ export function PeriodSummaryModal({
                      );
                   })}
                </View>
-               <Text style={styles.hintText}>Showing shots on target from our team</Text>
+               <Text style={styles.hintText}>
+                 {filterPeriod ? `Period ${filterPeriod} shots on target` : 'All shots on target from our team'}
+               </Text>
             </View>
           )}
 
@@ -319,6 +338,14 @@ export function PeriodSummaryModal({
         </ScrollView>
 
         <View style={styles.footer}>
+          {isMatchOver && !showFullMatch && (
+            <TouchableOpacity 
+              style={styles.viewFullButton} 
+              onPress={() => setShowFullMatch(true)}
+            >
+              <Text style={styles.viewFullButtonText}>View Full Match Stats</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity style={styles.nextButton} onPress={onNextPeriod}>
              <Text style={styles.nextButtonText}>
                 {isMatchOver ? 'End Match' : 'Start Next Period'}
@@ -358,6 +385,18 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: 8,
+  },
+  toggleButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  toggleButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600' as const,
   },
   tabBar: {
     flexDirection: 'row',
@@ -547,6 +586,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#e5e5ea',
+    gap: 12,
+  },
+  viewFullButton: {
+    backgroundColor: '#f2f2f7',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#007AFF',
+  },
+  viewFullButtonText: {
+    color: '#007AFF',
+    fontSize: 16,
+    fontWeight: '600' as const,
   },
   nextButton: {
     backgroundColor: '#007AFF',
