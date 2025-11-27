@@ -198,7 +198,7 @@ export function ShotDiagram({ shots, players, isOurTeam, periods = 3 }: ShotDiag
                 )}
                 {!player && (
                   <Target
-                    color={isGoal ? '#FFD700' : '#007AFF'}
+                    color={isGoal ? '#000' : '#007AFF'}
                     size={16}
                   />
                 )}
@@ -211,7 +211,7 @@ export function ShotDiagram({ shots, players, isOurTeam, periods = 3 }: ShotDiag
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendCircle, styles.goalCircle]} />
-          <Text style={styles.legendText}>Goal (Green)</Text>
+          <Text style={styles.legendText}>Goal (Gold)</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendCircle, styles.saveCircle]} />
@@ -250,8 +250,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   goalCircle: {
-    backgroundColor: '#34C759',
-    borderColor: '#28A745',
+    backgroundColor: '#FFD700',
+    borderColor: '#FFA500',
   },
   saveCircle: {
     backgroundColor: '#007AFF',
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
   },
   goalText: {
-    color: '#fff',
+    color: '#000',
   },
   saveText: {
     color: '#fff',

@@ -268,8 +268,8 @@ export function PeriodSummaryModal({
                <Text style={styles.sectionTitle}>Shots on Target</Text>
                <View style={styles.legend}>
                   <View style={styles.legendItem}>
-                     <View style={[styles.legendDot, { backgroundColor: '#34C759' }]} />
-                     <Text style={styles.legendText}>Goal (Green)</Text>
+                     <View style={[styles.legendDot, { backgroundColor: '#FFD700' }]} />
+                     <Text style={styles.legendText}>Goal (Gold)</Text>
                   </View>
                   <View style={styles.legendItem}>
                      <View style={[styles.legendDot, { backgroundColor: '#007AFF' }]} />
@@ -293,10 +293,10 @@ export function PeriodSummaryModal({
                         >
                            <View style={[
                               styles.shotCircle,
-                              { backgroundColor: isGoal ? '#34C759' : '#007AFF', borderColor: isGoal ? '#28A745' : '#0051D5' }
+                              { backgroundColor: isGoal ? '#FFD700' : '#007AFF', borderColor: isGoal ? '#FFA500' : '#0051D5' }
                            ]}>
                               {player && (
-                                 <Text style={styles.shotPlayerNumber}>
+                                 <Text style={[styles.shotPlayerNumber, { color: isGoal ? '#000' : '#fff' }]}>
                                     {player.jerseyNumber}
                                  </Text>
                               )}
