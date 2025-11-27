@@ -171,7 +171,7 @@ export function PeriodSummaryModal({
                {match.ourScore} - {match.opponentScore}
              </Text>
           </View>
-          {isMatchOver && (
+          {isMatchOver ? (
             <TouchableOpacity 
               style={styles.toggleButton} 
               onPress={() => setShowFullMatch(!showFullMatch)}
@@ -180,7 +180,7 @@ export function PeriodSummaryModal({
                 {showFullMatch ? `P${match.currentPeriod}` : 'Full'}
               </Text>
             </TouchableOpacity>
-          )}
+          ) : null}
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <X color="#1c1c1e" size={24} />
           </TouchableOpacity>
@@ -211,7 +211,7 @@ export function PeriodSummaryModal({
         </View>
 
         <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-          {activeTab === 'overview' && (
+          {activeTab === 'overview' ? (
             <View style={styles.statsContainer}>
               <View style={styles.statRow}>
                 <View style={styles.statBox}>
@@ -261,9 +261,9 @@ export function PeriodSummaryModal({
                 </View>
               </View>
             </View>
-          )}
+          ) : null}
 
-          {activeTab === 'shots' && (
+          {activeTab === 'shots' ? (
             <View style={styles.shotMapContainer}>
                <Text style={styles.sectionTitle}>Shots on Target</Text>
                <View style={styles.legend}>
@@ -309,9 +309,9 @@ export function PeriodSummaryModal({
                  {filterPeriod ? `Period ${filterPeriod} shots on target` : 'All shots on target from our team'}
                </Text>
             </View>
-          )}
+          ) : null}
 
-          {activeTab === 'players' && (
+          {activeTab === 'players' ? (
             <View style={styles.playersContainer}>
                <Text style={styles.sectionTitle}>Top 3 Performers</Text>
                {stats.playerRatings.map((p, index) => (
@@ -330,22 +330,22 @@ export function PeriodSummaryModal({
                      </View>
                   </View>
                ))}
-               {stats.playerRatings.length === 0 && (
+               {stats.playerRatings.length === 0 ? (
                   <Text style={styles.emptyText}>Not enough data yet</Text>
-               )}
+               ) : null}
             </View>
-          )}
+          ) : null}
         </ScrollView>
 
         <View style={styles.footer}>
-          {isMatchOver && !showFullMatch && (
+          {isMatchOver && !showFullMatch ? (
             <TouchableOpacity 
               style={styles.viewFullButton} 
               onPress={() => setShowFullMatch(true)}
             >
               <Text style={styles.viewFullButtonText}>View Full Match Stats</Text>
             </TouchableOpacity>
-          )}
+          ) : null}
           <TouchableOpacity style={styles.nextButton} onPress={onNextPeriod}>
              <Text style={styles.nextButtonText}>
                 {isMatchOver ? 'End Match' : 'Start Next Period'}
