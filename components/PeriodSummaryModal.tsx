@@ -158,6 +158,22 @@ export function PeriodSummaryModal({
   const isMatchOver = match.currentPeriod >= 3;
   const filterPeriod = (showFullMatch && isMatchOver) ? null : match.currentPeriod;
   const shotsToDisplay = filterPeriod ? match.shots.filter(s => s.period === filterPeriod) : match.shots;
+  
+  console.log('=== Period Summary Shot Debug ===');
+  console.log('Total shots in match:', match.shots.length);
+  console.log('Filter period:', filterPeriod);
+  console.log('Shots to display:', shotsToDisplay.length);
+  console.log('All match shots:', match.shots.map(s => ({
+    id: s.id,
+    period: s.period,
+    result: s.result,
+    isOurTeam: s.isOurTeam,
+    onGoal: s.onGoal,
+    playerId: s.playerId
+  })));
+  console.log('Our team shots with onGoal:', shotsToDisplay.filter(s => s.isOurTeam && s.onGoal).length);
+  console.log('Goal shots:', shotsToDisplay.filter(s => s.result === 'goal').length);
+  console.log('=================================');
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
@@ -281,6 +297,9 @@ export function PeriodSummaryModal({
                      const isGoal = shot.result === 'goal';
                      const player = shot.playerId ? players.find(p => p.id === shot.playerId) : null;
                      const location = shot.location || { x: 0.5, y: 0.5 };
+                     
+                     console.log(`Shot ${shot.id}: result=${shot.result}, isGoal=${isGoal}, player=${player?.jerseyNumber}, location=${JSON.stringify(location)}`);
+                     
                      return (
                         <View
                            key={shot.id}
@@ -294,12 +313,22 @@ export function PeriodSummaryModal({
                         >
                            <View style={[
                               styles.shotCircle,
-                              { backgroundColor: isGoal ? '#FFD700' : '#007AFF', borderColor: isGoal ? '#FFA500' : '#0051D5' }
+                              { 
+                                backgroundColor: isGoal ? '#FFD700' : '#007AFF', 
+                                borderColor: isGoal ? '#FFA500' : '#0051D5',
+                                borderWidth: 2
+                              }
                            ]}>
                               {player && (
                                  <Text style={[styles.shotPlayerNumber, { color: isGoal ? '#000' : '#fff' }]}>
                                     {player.jerseyNumber}
                                  </Text>
+                              )}
+                              {!player && (
+                                 <Target
+                                    color={isGoal ? '#000' : '#fff'}
+                                    size={16}
+                                 />
                               )}
                            </View>
                         </View>

@@ -189,6 +189,8 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         period: activeMatch.currentPeriod || 1,
       };
 
+      console.log('Created goal shot:', goalShot);
+
       const updatedMatch = {
         ...activeMatch,
         goals: [...activeMatch.goals, newGoal],
