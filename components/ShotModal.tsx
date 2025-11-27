@@ -17,13 +17,14 @@ interface ShotModalProps {
   onClose: () => void;
   preselectedScorer?: string;
   isGoalShot?: boolean;
+  goalTimestamp?: string;
 }
 
 const NET_WIDTH = Dimensions.get('window').width - 32;
 const NET_HEIGHT = NET_WIDTH * 0.6;
 
-export function ShotModal({ visible, isOurTeam, onClose, preselectedScorer, isGoalShot = false }: ShotModalProps) {
-  const { players, activeMatch, addShot } = useHockey();
+export function ShotModal({ visible, isOurTeam, onClose, preselectedScorer, isGoalShot = false, goalTimestamp }: ShotModalProps) {
+  const { players, activeMatch, addShot, updateGoalShotLocation } = useHockey();
   const [location, setLocation] = useState<ShotLocation | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(preselectedScorer || null);
 
@@ -50,13 +51,17 @@ export function ShotModal({ visible, isOurTeam, onClose, preselectedScorer, isGo
   };
 
   const handleSave = () => {
-    addShot({
-      playerId: selectedPlayer || undefined,
-      location: location || undefined,
-      isOurTeam,
-      onGoal: true,
-      result: isGoalShot ? 'goal' : 'save',
-    });
+    if (isGoalShot && goalTimestamp) {
+      updateGoalShotLocation(goalTimestamp, location || undefined);
+    } else {
+      addShot({
+        playerId: selectedPlayer || undefined,
+        location: location || undefined,
+        isOurTeam,
+        onGoal: true,
+        result: 'save',
+      });
+    }
 
     resetAndClose();
   };

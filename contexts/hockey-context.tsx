@@ -6,6 +6,7 @@ import {
   Match,
   Goal,
   Shot,
+  ShotLocation,
   PenaltyEvent,
   PossessionEvent,
   FaceoffEvent,
@@ -241,6 +242,35 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         opponentShots: !shot.isOurTeam
           ? activeMatch.opponentShots + 1
           : activeMatch.opponentShots,
+      };
+
+      const updatedMatches = matches.map((m) =>
+        m.id === activeMatch.id ? updatedMatch : m
+      );
+
+      saveMatches(updatedMatches);
+      setActiveMatch(updatedMatch);
+    },
+    [activeMatch, matches]
+  );
+
+  const updateGoalShotLocation = useCallback(
+    (goalId: string, location: ShotLocation | undefined) => {
+      if (!activeMatch) return;
+
+      const goalShot = activeMatch.shots.find(
+        (s) => s.result === 'goal' && s.timestamp === parseInt(goalId)
+      );
+
+      if (!goalShot) return;
+
+      const updatedShots = activeMatch.shots.map((s) =>
+        s.id === goalShot.id ? { ...s, location } : s
+      );
+
+      const updatedMatch = {
+        ...activeMatch,
+        shots: updatedShots,
       };
 
       const updatedMatches = matches.map((m) =>
@@ -696,6 +726,7 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
     updateActiveMatch,
     addGoal,
     addShot,
+    updateGoalShotLocation,
     addPenalty,
     addPossession,
     addFaceoff,

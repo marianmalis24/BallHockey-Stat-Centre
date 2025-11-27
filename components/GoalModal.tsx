@@ -16,7 +16,7 @@ interface GoalModalProps {
   visible: boolean;
   isOurTeam: boolean;
   onClose: () => void;
-  onOpenShotModal?: (scorerId: string) => void;
+  onOpenShotModal?: (scorerId: string, goalTimestamp: string) => void;
 }
 
 const NET_WIDTH = Dimensions.get('window').width - 32;
@@ -75,16 +75,18 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
     console.log('GoalModal: Goal data:', goalData);
     console.log('GoalModal: About to call addGoal function');
     
+    const goalTimestamp = Date.now();
+    
     addGoal(goalData);
     console.log('GoalModal: addGoal function called (includes automatic shot recording)');
-    console.log('GoalModal: Both goal and shot counters will be updated by addGoal');
+    console.log('GoalModal: Goal timestamp:', goalTimestamp);
 
     console.log('GoalModal: Closing modal');
     resetAndClose();
     
     if (isOurTeam && onOpenShotModal && scorer) {
-      console.log('GoalModal: Opening shot modal for goal shot location with scorer:', scorer);
-      onOpenShotModal(scorer);
+      console.log('GoalModal: Opening shot modal for goal shot location with scorer:', scorer, 'goalTimestamp:', goalTimestamp + 1);
+      onOpenShotModal(scorer, (goalTimestamp + 1).toString());
     }
     console.log('=== GoalModal handleSave finished ===');
   };
