@@ -277,17 +277,18 @@ export function PeriodSummaryModal({
                   </View>
                </View>
                <View style={styles.net}>
-                  {shotsToDisplay.filter(s => s.isOurTeam && s.onGoal && s.location).map((shot, index) => {
+                  {shotsToDisplay.filter(s => s.isOurTeam && s.onGoal).map((shot, index) => {
                      const isGoal = shot.result === 'goal';
                      const player = shot.playerId ? players.find(p => p.id === shot.playerId) : null;
+                     const location = shot.location || { x: 0.5, y: 0.5 };
                      return (
                         <View
                            key={shot.id}
                            style={[
                               styles.shotMarker,
                               {
-                                 left: (shot.location!.x * NET_WIDTH) - 16,
-                                 top: (shot.location!.y * NET_HEIGHT) - 16,
+                                 left: (location.x * NET_WIDTH) - 16,
+                                 top: (location.y * NET_HEIGHT) - 16,
                               }
                            ]}
                         >

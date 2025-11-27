@@ -33,7 +33,7 @@ export function ShotDiagram({ shots, players, isOurTeam, periods = 3 }: ShotDiag
   );
 
   const filteredShots = shots.filter((shot) => {
-    if (shot.isOurTeam !== isOurTeam || !shot.location) return false;
+    if (shot.isOurTeam !== isOurTeam) return false;
     if (selectedPeriod !== 'all' && shot.period !== selectedPeriod) return false;
     if (selectedPlayers.size > 0 && shot.playerId && !selectedPlayers.has(shot.playerId)) {
       return false;
@@ -42,7 +42,12 @@ export function ShotDiagram({ shots, players, isOurTeam, periods = 3 }: ShotDiag
   });
 
   const adjustedShots = filteredShots.map((shot, index) => {
-    if (!shot.location) return shot;
+    if (!shot.location) {
+      return {
+        ...shot,
+        location: { x: 0.5, y: 0.5 }
+      };
+    }
 
     const COLLISION_THRESHOLD = 0.05;
     let adjustedX = shot.location.x;
