@@ -1,7 +1,9 @@
 import { useHockey } from '@/contexts/hockey-context';
+import { EditGoalModal } from '@/components/EditGoalModal';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, Target, Users, Crosshair, Share2, FileText } from 'lucide-react-native';
+import { ChevronLeft, Target, Users, Crosshair, Share2, FileText, Edit3 } from 'lucide-react-native';
 import React, { useMemo, useCallback, useState } from 'react';
+import { Goal } from '@/types/hockey';
 import {
   View,
   Text,
@@ -141,6 +143,23 @@ export default function MatchDetailScreen() {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [notesText, setNotesText] = useState(match?.notes || '');
   const [showNotes, setShowNotes] = useState(false);
+  const [editGoalModalVisible, setEditGoalModalVisible] = useState(false);
+  const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
+
+  const handleEditGoal = useCallback((goal: Goal) => {
+    setSelectedGoal(goal);
+    setEditGoalModalVisible(true);
+  }, []);
+
+  const getPlayerName = useCallback((playerId: string): string => {
+    const player = players.find((p) => p.id === playerId);
+    return player ? `#${player.jerseyNumber} ${player.name}` : 'Unknown';
+  }, [players]);
+
+  const getPlayerShortName = useCallback((playerId: string): string => {
+    const player = players.find((p) => p.id === playerId);
+    return player ? `#${player.jerseyNumber}` : '?';
+  }, [players]);
 
   const handleSaveNotes = useCallback(() => {
     if (!match) return;
@@ -406,6 +425,48 @@ export default function MatchDetailScreen() {
           />
         </View>
 
+        {match.goals.length > 0 && (
+          <View style={styles.goalsCard}>
+            <View style={styles.statHeader}>
+              <Target color="#34C759" size={20} />
+              <Text style={styles.sectionTitle}>Goals</Text>
+              <Text style={styles.editHint}>Tap to edit</Text>
+            </View>
+
+            {match.goals.map((goal) => (
+              <TouchableOpacity
+                key={goal.id}
+                style={styles.goalRow}
+                onPress={() => handleEditGoal(goal)}
+                activeOpacity={0.6}
+              >
+                <View style={styles.goalInfo}>
+                  <View style={[
+                    styles.goalIndicator,
+                    goal.isOurTeam ? styles.goalIndicatorOur : styles.goalIndicatorOpp,
+                  ]} />
+                  <View style={styles.goalDetails}>
+                    <View style={styles.goalMainRow}>
+                      <Text style={styles.goalScorer}>
+                        {goal.isOurTeam ? getPlayerName(goal.scorerId) : 'Opponent'}
+                      </Text>
+                      <Text style={styles.goalPeriod}>P{goal.period}</Text>
+                    </View>
+                    {goal.assists.length > 0 && (
+                      <Text style={styles.goalAssists}>
+                        Assists: {goal.assists.map(getPlayerShortName).join(', ')}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+                {goal.isOurTeam && (
+                  <Edit3 color="#8e8e93" size={16} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         <View style={styles.notesCard}>
           <TouchableOpacity
             style={styles.notesHeader}
@@ -439,6 +500,16 @@ export default function MatchDetailScreen() {
           )}
         </View>
       </ScrollView>
+      <EditGoalModal
+        visible={editGoalModalVisible}
+        matchId={match.id}
+        goal={selectedGoal}
+        rosterPlayerIds={match.roster.map((r) => r.playerId)}
+        onClose={() => {
+          setEditGoalModalVisible(false);
+          setSelectedGoal(null);
+        }}
+      />
     </View>
   );
 }
@@ -783,6 +854,76 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#f2f2f7',
+  },
+  goalsCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  editHint: {
+    fontSize: 12,
+    color: '#8e8e93',
+    fontStyle: 'italic' as const,
+    marginLeft: 'auto' as const,
+  },
+  goalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f2f2f7',
+  },
+  goalInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 10,
+  },
+  goalIndicator: {
+    width: 4,
+    height: 36,
+    borderRadius: 2,
+  },
+  goalIndicatorOur: {
+    backgroundColor: '#34C759',
+  },
+  goalIndicatorOpp: {
+    backgroundColor: '#FF3B30',
+  },
+  goalDetails: {
+    flex: 1,
+  },
+  goalMainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  goalScorer: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: '#1c1c1e',
+  },
+  goalPeriod: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: '#8e8e93',
+    backgroundColor: '#f2f2f7',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  goalAssists: {
+    fontSize: 13,
+    color: '#8e8e93',
+    marginTop: 2,
   },
   notesInput: {
     backgroundColor: '#f8f9fa',
