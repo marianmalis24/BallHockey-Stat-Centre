@@ -1,10 +1,11 @@
 import { useHockey } from '@/contexts/hockey-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, Target, Users, Crosshair, Share2 } from 'lucide-react-native';
+import { ChevronLeft, Target, Users, Crosshair, Share2, FileText } from 'lucide-react-native';
 import React, { useMemo, useCallback, useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
@@ -19,7 +20,7 @@ import { ShotDiagram } from '@/components/ShotDiagram';
 
 export default function MatchDetailScreen() {
   const { matchId } = useLocalSearchParams<{ matchId: string }>();
-  const { matches, players } = useHockey();
+  const { matches, players, updateMatchNotes } = useHockey();
 
   const match = useMemo(() => {
     return matches.find((m) => m.id === matchId);
@@ -138,6 +139,13 @@ export default function MatchDetailScreen() {
   }, [match]);
 
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [notesText, setNotesText] = useState(match?.notes || '');
+  const [showNotes, setShowNotes] = useState(false);
+
+  const handleSaveNotes = useCallback(() => {
+    if (!match) return;
+    updateMatchNotes(match.id, notesText);
+  }, [match, notesText, updateMatchNotes]);
 
   const handleSharePdf = useCallback(async () => {
     if (!match) return;
@@ -396,6 +404,39 @@ export default function MatchDetailScreen() {
             isOurTeam={false}
             periods={match.currentPeriod || 3}
           />
+        </View>
+
+        <View style={styles.notesCard}>
+          <TouchableOpacity
+            style={styles.notesHeader}
+            onPress={() => setShowNotes(!showNotes)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.statHeader}>
+              <FileText color="#FF9500" size={20} />
+              <Text style={styles.sectionTitle}>Game Notes</Text>
+            </View>
+            <Text style={styles.notesToggle}>{showNotes ? 'Hide' : (match.notes ? 'Edit' : 'Add')}</Text>
+          </TouchableOpacity>
+          {!showNotes && match.notes ? (
+            <Text style={styles.notesPreview}>{match.notes}</Text>
+          ) : null}
+          {showNotes && (
+            <View style={styles.notesEditor}>
+              <TextInput
+                style={styles.notesInput}
+                value={notesText}
+                onChangeText={setNotesText}
+                placeholder="Add coaching notes, key takeaways, areas to improve..."
+                placeholderTextColor="#8e8e93"
+                multiline
+                textAlignVertical="top"
+              />
+              <TouchableOpacity style={styles.saveNotesBtn} onPress={handleSaveNotes}>
+                <Text style={styles.saveNotesBtnText}>Save Notes</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -706,5 +747,63 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 2,
+  },
+  notesCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  notesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  notesToggle: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#007AFF',
+  },
+  notesPreview: {
+    fontSize: 14,
+    color: '#1c1c1e',
+    lineHeight: 20,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f2f2f7',
+  },
+  notesEditor: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f2f2f7',
+  },
+  notesInput: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 15,
+    color: '#1c1c1e',
+    minHeight: 120,
+    borderWidth: 1,
+    borderColor: '#e5e5ea',
+    marginBottom: 12,
+  },
+  saveNotesBtn: {
+    backgroundColor: '#FF9500',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  saveNotesBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600' as const,
   },
 });

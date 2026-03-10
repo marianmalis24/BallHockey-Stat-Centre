@@ -91,6 +91,14 @@ export interface ShootoutData {
   completed: boolean;
 }
 
+export type ActionType = 'goal' | 'shot' | 'penalty' | 'possession' | 'faceoff';
+
+export interface UndoAction {
+  type: ActionType;
+  description: string;
+  snapshot: Omit<Match, 'undoStack'>;
+}
+
 export interface Match {
   id: string;
   date: number;
@@ -114,6 +122,8 @@ export interface Match {
   shootout?: ShootoutData;
   endedAs?: 'regulation' | 'overtime' | 'shootout' | 'draw';
   ppshStartTimestamp?: number;
+  notes?: string;
+  undoStack?: UndoAction[];
 }
 
 export interface PlayerStats {
@@ -166,4 +176,32 @@ export interface OpponentStats {
   draws: number;
   goalsFor: number;
   goalsAgainst: number;
+}
+
+export interface SeasonStats {
+  gamesPlayed: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  winPercentage: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifferential: number;
+  avgGoalsFor: number;
+  avgGoalsAgainst: number;
+  shotsFor: number;
+  shotsAgainst: number;
+  shootingPercentage: number;
+  totalPenaltyMinutes: number;
+  faceoffWins: number;
+  faceoffLosses: number;
+  faceoffPercentage: number;
+  currentStreak: { type: 'W' | 'L' | 'D'; count: number };
+  longestWinStreak: number;
+  periodScoring: { period: number; goalsFor: number; goalsAgainst: number }[];
+  last5: ('W' | 'L' | 'D')[];
+  ppGoals: number;
+  ppOpportunities: number;
+  shGoalsAgainst: number;
+  shOpportunities: number;
 }

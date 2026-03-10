@@ -16,6 +16,8 @@ import {
   OpponentStats,
   GameState,
   ShootoutData,
+  SeasonStats,
+  UndoAction,
 } from '@/types/hockey';
 
 const PLAYERS_KEY = 'hockey_players';
@@ -220,6 +222,39 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
     };
   }, [activeMatch]);
 
+  const createSnapshot = useCallback((match: Match): Omit<Match, 'undoStack'> => {
+    const { undoStack: _undoStack, ...rest } = match;
+    return JSON.parse(JSON.stringify(rest));
+  }, []);
+
+  const pushUndo = useCallback((match: Match, type: UndoAction['type'], description: string): Match => {
+    const snapshot = createSnapshot(match);
+    const stack = match.undoStack || [];
+    const newStack = [...stack.slice(-19), { type, description, snapshot }];
+    return { ...match, undoStack: newStack };
+  }, [createSnapshot]);
+
+  const undoLastAction = useCallback(() => {
+    if (!activeMatch) return null;
+    const stack = activeMatch.undoStack || [];
+    if (stack.length === 0) return null;
+
+    const lastAction = stack[stack.length - 1];
+    const restored: Match = {
+      ...lastAction.snapshot,
+      undoStack: stack.slice(0, -1),
+    };
+
+    const updatedMatches = matches.map((m) =>
+      m.id === activeMatch.id ? restored : m
+    );
+
+    saveMatches(updatedMatches);
+    setActiveMatch(restored);
+    console.log('Undid action:', lastAction.description);
+    return lastAction;
+  }, [activeMatch, matches]);
+
   const addGoal = useCallback(
     (goal: Omit<Goal, 'id' | 'timestamp' | 'period'>) => {
       if (!activeMatch) {
@@ -260,8 +295,10 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         gameState: currentGameState,
       };
 
+      const matchWithUndo = pushUndo(activeMatch, 'goal', goal.isOurTeam ? 'Our Goal' : 'Goal Against');
+
       const updatedMatch = {
-        ...activeMatch,
+        ...matchWithUndo,
         goals: [...activeMatch.goals, newGoal],
         shots: [...activeMatch.shots, goalShot],
         ourScore: newOurScore,
@@ -283,7 +320,7 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
 
       return goalShotId;
     },
-    [activeMatch, matches]
+    [activeMatch, matches, pushUndo]
   );
 
   const addShot = useCallback(
@@ -301,8 +338,10 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         gameState: currentGameState,
       };
 
+      const matchWithUndo = pushUndo(activeMatch, 'shot', shot.isOurTeam ? 'Our Shot' : 'Shot Against');
+
       const updatedMatch = {
-        ...activeMatch,
+        ...matchWithUndo,
         shots: [...activeMatch.shots, newShot],
         ourShots: shot.isOurTeam ? activeMatch.ourShots + 1 : activeMatch.ourShots,
         opponentShots: !shot.isOurTeam
@@ -317,7 +356,7 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
       saveMatches(updatedMatches);
       setActiveMatch(updatedMatch);
     },
-    [activeMatch, matches]
+    [activeMatch, matches, pushUndo]
   );
 
   const updateGoalShotLocation = useCallback(
@@ -368,8 +407,10 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         gameState: activeMatch.gameState || 'even',
       };
 
+      const matchWithUndo = pushUndo(activeMatch, 'penalty', 'Penalty');
+
       const updatedMatch = {
-        ...activeMatch,
+        ...matchWithUndo,
         penalties: [...activeMatch.penalties, newPenalty],
       };
 
@@ -380,7 +421,7 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
       saveMatches(updatedMatches);
       setActiveMatch(updatedMatch);
     },
-    [activeMatch, matches]
+    [activeMatch, matches, pushUndo]
   );
 
   const addPossession = useCallback(
@@ -395,8 +436,10 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         gameState: activeMatch.gameState || 'even',
       };
 
+      const matchWithUndo = pushUndo(activeMatch, 'possession', possession.type === 'gain' ? 'Possession Gain' : 'Possession Loss');
+
       const updatedMatch = {
-        ...activeMatch,
+        ...matchWithUndo,
         possessions: [...activeMatch.possessions, newPossession],
       };
 
@@ -407,7 +450,7 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
       saveMatches(updatedMatches);
       setActiveMatch(updatedMatch);
     },
-    [activeMatch, matches]
+    [activeMatch, matches, pushUndo]
   );
 
   const addFaceoff = useCallback(
@@ -422,8 +465,10 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         gameState: activeMatch.gameState || 'even',
       };
 
+      const matchWithUndo = pushUndo(activeMatch, 'faceoff', 'Faceoff');
+
       const updatedMatch = {
-        ...activeMatch,
+        ...matchWithUndo,
         faceoffs: [...(activeMatch.faceoffs || []), newFaceoff],
       };
 
@@ -434,7 +479,7 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
       saveMatches(updatedMatches);
       setActiveMatch(updatedMatch);
     },
-    [activeMatch, matches]
+    [activeMatch, matches, pushUndo]
   );
 
   const nextPeriod = useCallback((isOvertime?: boolean) => {
@@ -868,6 +913,130 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
     return Array.from(opponentMap.values()).sort((a, b) => b.gamesPlayed - a.gamesPlayed);
   }, [matches]);
 
+  const updateMatchNotes = useCallback(
+    (matchId: string, notes: string) => {
+      const updatedMatches = matches.map((m) =>
+        m.id === matchId ? { ...m, notes } : m
+      );
+      saveMatches(updatedMatches);
+      if (activeMatch && activeMatch.id === matchId) {
+        setActiveMatch({ ...activeMatch, notes });
+      }
+    },
+    [matches, activeMatch]
+  );
+
+  const calculateSeasonStats = useCallback((): SeasonStats => {
+    const completed = matches.filter((m) => !m.isActive).sort((a, b) => a.date - b.date);
+    const gp = completed.length;
+
+    let wins = 0, losses = 0, draws = 0;
+    let goalsFor = 0, goalsAgainst = 0;
+    let shotsFor = 0, shotsAgainst = 0;
+    let totalPIM = 0;
+    let foWins = 0, foLosses = 0;
+    let ppGoals = 0, ppOpportunities = 0;
+    let shGoalsAgainst = 0, shOpportunities = 0;
+    const periodMap = new Map<number, { gf: number; ga: number }>();
+    let currentStreak: { type: 'W' | 'L' | 'D'; count: number } = { type: 'W', count: 0 };
+    let longestWin = 0;
+    let runningWin = 0;
+
+    completed.forEach((m) => {
+      const w = m.ourScore > m.opponentScore;
+      const l = m.ourScore < m.opponentScore;
+      if (w) { wins++; runningWin++; longestWin = Math.max(longestWin, runningWin); }
+      else { runningWin = 0; }
+      if (l) losses++;
+      if (!w && !l) draws++;
+
+      goalsFor += m.ourScore;
+      goalsAgainst += m.opponentScore;
+      shotsFor += m.ourShots;
+      shotsAgainst += m.opponentShots;
+      totalPIM += m.penalties.reduce((s, p) => s + p.minutes, 0);
+
+      (m.faceoffs || []).forEach((f) => {
+        if (m.roster.some((r) => r.playerId === f.winnerId)) foWins++;
+        else foLosses++;
+      });
+
+      m.goals.forEach((g) => {
+        const p = g.period || 1;
+        const existing = periodMap.get(p) || { gf: 0, ga: 0 };
+        if (g.isOurTeam) existing.gf++;
+        else existing.ga++;
+        periodMap.set(p, existing);
+
+        if (g.gameState === 'pp' && g.isOurTeam) ppGoals++;
+        if (g.gameState === 'sh' && !g.isOurTeam) shGoalsAgainst++;
+      });
+
+      const matchPPEvents = m.goals.filter(g => g.gameState === 'pp' || g.gameState === 'sh');
+      const uniquePPTimestamps = new Set(m.shots.filter(s => s.gameState === 'pp' && s.isOurTeam).map(s => s.gameState));
+      if (uniquePPTimestamps.size > 0 || matchPPEvents.some(g => g.gameState === 'pp')) ppOpportunities++;
+      const uniqueSHTimestamps = new Set(m.shots.filter(s => s.gameState === 'sh' && !s.isOurTeam).map(s => s.gameState));
+      if (uniqueSHTimestamps.size > 0 || matchPPEvents.some(g => g.gameState === 'sh')) shOpportunities++;
+    });
+
+    if (completed.length > 0) {
+      const last = completed[completed.length - 1];
+      const lastResult = last.ourScore > last.opponentScore ? 'W' as const : last.ourScore < last.opponentScore ? 'L' as const : 'D' as const;
+      currentStreak = { type: lastResult, count: 1 };
+      for (let i = completed.length - 2; i >= 0; i--) {
+        const r = completed[i].ourScore > completed[i].opponentScore ? 'W' as const : completed[i].ourScore < completed[i].opponentScore ? 'L' as const : 'D' as const;
+        if (r === lastResult) currentStreak.count++;
+        else break;
+      }
+    }
+
+    const last5Results = completed.slice(-5).map((m): 'W' | 'L' | 'D' =>
+      m.ourScore > m.opponentScore ? 'W' : m.ourScore < m.opponentScore ? 'L' : 'D'
+    );
+
+    const periodScoring = Array.from(periodMap.entries())
+      .filter(([p]) => p <= 3)
+      .sort(([a], [b]) => a - b)
+      .map(([period, data]) => ({ period, goalsFor: data.gf, goalsAgainst: data.ga }));
+
+    for (let p = 1; p <= 3; p++) {
+      if (!periodScoring.find(ps => ps.period === p)) {
+        periodScoring.push({ period: p, goalsFor: 0, goalsAgainst: 0 });
+      }
+    }
+    periodScoring.sort((a, b) => a.period - b.period);
+
+    const foTotal = foWins + foLosses;
+
+    return {
+      gamesPlayed: gp,
+      wins,
+      losses,
+      draws,
+      winPercentage: gp > 0 ? (wins / gp) * 100 : 0,
+      goalsFor,
+      goalsAgainst,
+      goalDifferential: goalsFor - goalsAgainst,
+      avgGoalsFor: gp > 0 ? goalsFor / gp : 0,
+      avgGoalsAgainst: gp > 0 ? goalsAgainst / gp : 0,
+      shotsFor,
+      shotsAgainst,
+      shootingPercentage: shotsFor > 0 ? (goalsFor / shotsFor) * 100 : 0,
+      totalPenaltyMinutes: totalPIM,
+      faceoffWins: foWins,
+      faceoffLosses: foLosses,
+      faceoffPercentage: foTotal > 0 ? (foWins / foTotal) * 100 : 0,
+      currentStreak,
+      longestWinStreak: longestWin,
+      periodScoring,
+      last5: last5Results,
+      ppGoals,
+      ppOpportunities,
+      shGoalsAgainst,
+      shOpportunities,
+    };
+  }, [matches]);
+
   return {
     players,
     matches,
@@ -890,10 +1059,13 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
     setGameState,
     getPPSHSummary,
     updateShootout,
+    undoLastAction,
+    updateMatchNotes,
     calculatePlayerStats,
     calculateGoalieStats,
     calculatePlayerMatchHistory,
     calculateOpponentStats,
+    calculateSeasonStats,
   };
 });
 

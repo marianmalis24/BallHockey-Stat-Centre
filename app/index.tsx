@@ -7,7 +7,7 @@ import { MatchStatsModal } from '@/components/MatchStatsModal';
 import { FaceoffModal } from '@/components/FaceoffModal';
 import { ShootoutModal } from '@/components/ShootoutModal';
 import { Stack, router } from 'expo-router';
-import { Plus, Target, Users, BarChart3, AlertCircle, RefreshCw, Clock, TrendingUp, Shield, History, Zap, ShieldOff, Circle } from 'lucide-react-native';
+import { Plus, Target, Users, BarChart3, AlertCircle, RefreshCw, Clock, TrendingUp, Shield, History, Zap, ShieldOff, Circle, Undo2, Activity } from 'lucide-react-native';
 import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
@@ -31,6 +31,7 @@ export default function GameScreen() {
     nextPeriod,
     setGameState,
     getPPSHSummary,
+    undoLastAction,
   } = useHockey();
 
   const [goalModalVisible, setGoalModalVisible] = useState(false);
@@ -174,6 +175,15 @@ export default function GameScreen() {
     setPlayerActionModalVisible(true);
   }, []);
 
+  const handleUndo = useCallback(() => {
+    const undone = undoLastAction();
+    if (undone) {
+      Alert.alert('Undone', `Reverted: ${undone.description}`);
+    } else {
+      Alert.alert('Nothing to Undo', 'No recent actions to undo');
+    }
+  }, [undoLastAction]);
+
   const handleSwapGoalie = useCallback(() => {
     if (!activeMatch) return;
 
@@ -251,6 +261,13 @@ export default function GameScreen() {
             <History color="#007AFF" size={20} />
             <Text style={styles.secondaryButtonText}>Match History</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={() => router.push('/season-dashboard')}
+          >
+            <Activity color="#007AFF" size={20} />
+            <Text style={styles.secondaryButtonText}>Season Dashboard</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -293,9 +310,14 @@ export default function GameScreen() {
             </Text>
           </View>
         </View>
-        <TouchableOpacity onPress={() => router.push('/stats')}>
-          <BarChart3 color="#007AFF" size={24} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <TouchableOpacity onPress={handleUndo} style={styles.undoBtn}>
+            <Undo2 color={(activeMatch?.undoStack?.length ?? 0) > 0 ? '#FF9500' : '#3a3a3c'} size={22} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/stats')}>
+            <BarChart3 color="#007AFF" size={24} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.scrollContent} contentContainerStyle={styles.content}>
@@ -1094,5 +1116,8 @@ const styles = StyleSheet.create({
   },
   ppshProgressSH: {
     backgroundColor: '#FF3B30',
+  },
+  undoBtn: {
+    padding: 4,
   },
 });
