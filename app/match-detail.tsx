@@ -145,18 +145,25 @@ export default function MatchDetailScreen() {
     try {
       console.log('Generating match stats PDF...');
       const html = generateMatchStatsHTML(match, players);
-      const { uri } = await Print.printToFileAsync({
-        html,
-        base64: false,
-      });
-      console.log('PDF generated at:', uri);
 
       if (Platform.OS === 'web') {
         await Print.printAsync({ html });
       } else {
+        const result = await Print.printToFileAsync({
+          html,
+          base64: false,
+        });
+        console.log('PDF generated at:', result?.uri);
+
+        if (!result?.uri) {
+          console.warn('printToFileAsync returned no uri, falling back to printAsync');
+          await Print.printAsync({ html });
+          return;
+        }
+
         const isAvailable = await Sharing.isAvailableAsync();
         if (isAvailable) {
-          await Sharing.shareAsync(uri, {
+          await Sharing.shareAsync(result.uri, {
             mimeType: 'application/pdf',
             dialogTitle: `Match Stats vs ${match.opponentName}`,
             UTI: 'com.adobe.pdf',
