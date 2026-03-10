@@ -297,6 +297,54 @@ export function PeriodSummaryModal({
                   <Text style={styles.statLabel}>Shots</Text>
                 </View>
               </View>
+              {(() => {
+                const ourShotsFiltered = (filterPeriod ? match.shots.filter(s => s.period === filterPeriod) : match.shots)
+                  .filter(s => s.isOurTeam && (situationFilter === 'all' || s.gameState === situationFilter));
+                const oppShotsFiltered = (filterPeriod ? match.shots.filter(s => s.period === filterPeriod) : match.shots)
+                  .filter(s => !s.isOurTeam && (situationFilter === 'all' || s.gameState === situationFilter));
+                const ourHigh = ourShotsFiltered.filter(s => s.shotRisk === 'high').length;
+                const ourMed = ourShotsFiltered.filter(s => s.shotRisk === 'medium').length;
+                const ourLow = ourShotsFiltered.filter(s => s.shotRisk === 'low').length;
+                const oppHigh = oppShotsFiltered.filter(s => s.shotRisk === 'high').length;
+                const oppMed = oppShotsFiltered.filter(s => s.shotRisk === 'medium').length;
+                const oppLow = oppShotsFiltered.filter(s => s.shotRisk === 'low').length;
+                return (
+                  <View style={styles.riskRow}>
+                    <View style={styles.riskSide}>
+                      <View style={styles.riskChipRow}>
+                        <View style={[styles.riskChip, { backgroundColor: 'rgba(255,59,48,0.15)' }]}>
+                          <View style={[styles.riskDot, { backgroundColor: '#FF3B30' }]} />
+                          <Text style={[styles.riskChipText, { color: '#FF3B30' }]}>{ourHigh}</Text>
+                        </View>
+                        <View style={[styles.riskChip, { backgroundColor: 'rgba(255,149,0,0.15)' }]}>
+                          <View style={[styles.riskDot, { backgroundColor: '#FF9500' }]} />
+                          <Text style={[styles.riskChipText, { color: '#FF9500' }]}>{ourMed}</Text>
+                        </View>
+                        <View style={[styles.riskChip, { backgroundColor: 'rgba(52,199,89,0.15)' }]}>
+                          <View style={[styles.riskDot, { backgroundColor: '#34C759' }]} />
+                          <Text style={[styles.riskChipText, { color: '#34C759' }]}>{ourLow}</Text>
+                        </View>
+                      </View>
+                    </View>
+                    <View style={styles.riskSide}>
+                      <View style={styles.riskChipRow}>
+                        <View style={[styles.riskChip, { backgroundColor: 'rgba(255,59,48,0.15)' }]}>
+                          <View style={[styles.riskDot, { backgroundColor: '#FF3B30' }]} />
+                          <Text style={[styles.riskChipText, { color: '#FF3B30' }]}>{oppHigh}</Text>
+                        </View>
+                        <View style={[styles.riskChip, { backgroundColor: 'rgba(255,149,0,0.15)' }]}>
+                          <View style={[styles.riskDot, { backgroundColor: '#FF9500' }]} />
+                          <Text style={[styles.riskChipText, { color: '#FF9500' }]}>{oppMed}</Text>
+                        </View>
+                        <View style={[styles.riskChip, { backgroundColor: 'rgba(52,199,89,0.15)' }]}>
+                          <View style={[styles.riskDot, { backgroundColor: '#34C759' }]} />
+                          <Text style={[styles.riskChipText, { color: '#34C759' }]}>{oppLow}</Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })()}
               <View style={styles.statRow}>
                 <View style={styles.statBox}>
                   <Text style={styles.statValue}>{stats.ourFaceoffWinRate.toFixed(0)}%</Text>
@@ -331,8 +379,16 @@ export function PeriodSummaryModal({
                   <Text style={styles.legendText}>Goal</Text>
                 </View>
                 <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: '#007AFF' }]} />
-                  <Text style={styles.legendText}>Save</Text>
+                  <View style={[styles.legendDot, { backgroundColor: '#FF3B30' }]} />
+                  <Text style={styles.legendText}>High</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: '#FF9500' }]} />
+                  <Text style={styles.legendText}>Med</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: '#34C759' }]} />
+                  <Text style={styles.legendText}>Low</Text>
                 </View>
               </View>
               <View style={styles.net}>
@@ -354,8 +410,8 @@ export function PeriodSummaryModal({
                       <View style={[
                         styles.shotCircle,
                         {
-                          backgroundColor: isGoal ? '#FFD700' : '#007AFF',
-                          borderColor: isGoal ? '#FFA500' : '#0051D5',
+                          backgroundColor: isGoal ? '#FFD700' : (shot.shotRisk === 'high' ? '#FF3B30' : shot.shotRisk === 'medium' ? '#FF9500' : shot.shotRisk === 'low' ? '#34C759' : '#007AFF'),
+                          borderColor: isGoal ? '#FFA500' : (shot.shotRisk === 'high' ? '#cc2f26' : shot.shotRisk === 'medium' ? '#cc7700' : shot.shotRisk === 'low' ? '#2aa147' : '#0051D5'),
                           borderWidth: 2,
                         },
                       ]}>
@@ -646,6 +702,36 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#8e8e93',
     textAlign: 'center' as const,
+  },
+  riskRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+  },
+  riskSide: {
+    flex: 1,
+    alignItems: 'center' as const,
+  },
+  riskChipRow: {
+    flexDirection: 'row' as const,
+    gap: 6,
+  },
+  riskChip: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  riskDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  riskChipText: {
+    fontSize: 13,
+    fontWeight: '700' as const,
   },
   playersContainer: {
     gap: 12,

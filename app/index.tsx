@@ -51,6 +51,7 @@ export default function GameScreen() {
   const [ppshSummary, setPpshSummary] = useState<{ type: GameState | undefined; ourShots: number; oppShots: number; ourGoals: number; oppGoals: number; foWins: number; foLosses: number } | null>(null);
   const ppshOpacity = useRef(new Animated.Value(0)).current;
   const ppshTranslateY = useRef(new Animated.Value(-30)).current;
+  const ppshProgressWidth = useRef(new Animated.Value(1)).current;
   const ppshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleAddGoal = useCallback((type: 'our' | 'opponent') => {
@@ -87,17 +88,19 @@ export default function GameScreen() {
     setPpshSummary(summary);
     ppshOpacity.setValue(0);
     ppshTranslateY.setValue(-30);
+    ppshProgressWidth.setValue(1);
     Animated.parallel([
       Animated.timing(ppshOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
       Animated.timing(ppshTranslateY, { toValue: 0, duration: 250, useNativeDriver: true }),
     ]).start();
+    Animated.timing(ppshProgressWidth, { toValue: 0, duration: 5000, useNativeDriver: false }).start();
     ppshTimerRef.current = setTimeout(() => {
       Animated.parallel([
         Animated.timing(ppshOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
         Animated.timing(ppshTranslateY, { toValue: -30, duration: 300, useNativeDriver: true }),
       ]).start(() => setPpshSummary(null));
-    }, 3000);
-  }, [ppshOpacity, ppshTranslateY]);
+    }, 5000);
+  }, [ppshOpacity, ppshTranslateY, ppshProgressWidth]);
 
   const handleGameStateChange = useCallback((newState: GameState) => {
     if (!activeMatch) return;
@@ -303,12 +306,24 @@ export default function GameScreen() {
               <Text style={styles.teamLabel}>Us</Text>
               <Text style={styles.score}>{activeMatch.ourScore}</Text>
               <Text style={styles.shots}>{activeMatch.ourShots} shots</Text>
+              {(() => {
+                const totalFO = (activeMatch.faceoffs || []).length;
+                const foWins = (activeMatch.faceoffs || []).filter(f => activeMatch.roster.some(r => r.playerId === f.winnerId)).length;
+                const foPct = totalFO > 0 ? Math.round((foWins / totalFO) * 100) : 0;
+                return totalFO > 0 ? <Text style={styles.foPercent}>FO {foPct}%</Text> : null;
+              })()}
             </View>
             <View style={styles.scoreDivider} />
             <View style={styles.scoreColumn}>
               <Text style={styles.teamLabel}>Them</Text>
               <Text style={styles.score}>{activeMatch.opponentScore}</Text>
               <Text style={styles.shots}>{activeMatch.opponentShots} shots</Text>
+              {(() => {
+                const totalFO = (activeMatch.faceoffs || []).length;
+                const foLosses = (activeMatch.faceoffs || []).filter(f => activeMatch.roster.some(r => r.playerId === f.loserId)).length;
+                const foPct = totalFO > 0 ? Math.round((foLosses / totalFO) * 100) : 0;
+                return totalFO > 0 ? <Text style={styles.foPercent}>FO {foPct}%</Text> : null;
+              })()}
             </View>
           </View>
         </View>
@@ -561,7 +576,7 @@ export default function GameScreen() {
               </View>
             </View>
             <View style={styles.ppshToastProgressBar}>
-              <Animated.View style={[styles.ppshProgressFill, ppshSummary.type === 'pp' ? styles.ppshProgressPP : styles.ppshProgressSH]} />
+              <Animated.View style={[styles.ppshProgressFill, ppshSummary.type === 'pp' ? styles.ppshProgressPP : styles.ppshProgressSH, { width: ppshProgressWidth.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }]} />
             </View>
           </View>
         </Animated.View>
@@ -664,6 +679,12 @@ const styles = StyleSheet.create({
   shots: {
     fontSize: 14,
     color: '#8e8e93',
+  },
+  foPercent: {
+    fontSize: 12,
+    color: '#5ac8fa',
+    fontWeight: '600' as const,
+    marginTop: 2,
   },
   scoreDivider: {
     width: 1,

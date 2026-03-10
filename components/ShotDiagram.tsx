@@ -170,6 +170,15 @@ export function ShotDiagram({ shots, players, isOurTeam, periods = 3 }: ShotDiag
             : null;
 
           const isGoal = shot.result === 'goal';
+          const riskColors = {
+            high: { bg: '#FF3B30', border: '#cc2f26' },
+            medium: { bg: '#FF9500', border: '#cc7700' },
+            low: { bg: '#34C759', border: '#2aa147' },
+          };
+          const riskColor = shot.shotRisk ? riskColors[shot.shotRisk] : null;
+          const bgColor = isGoal ? '#FFD700' : (riskColor ? riskColor.bg : '#007AFF');
+          const borderColor = isGoal ? '#FFA500' : (riskColor ? riskColor.border : '#0051D5');
+          const textColor = isGoal ? '#000' : '#fff';
 
           return (
             <View
@@ -185,14 +194,14 @@ export function ShotDiagram({ shots, players, isOurTeam, periods = 3 }: ShotDiag
               <View
                 style={[
                   styles.shotCircle,
-                  isGoal ? styles.goalCircle : styles.saveCircle,
+                  { backgroundColor: bgColor, borderColor: borderColor },
                 ]}
               >
                 {player && (
                   <Text
                     style={[
                       styles.playerNumber,
-                      isGoal ? styles.goalText : styles.saveText,
+                      { color: textColor },
                     ]}
                   >
                     {player.jerseyNumber}
@@ -200,7 +209,7 @@ export function ShotDiagram({ shots, players, isOurTeam, periods = 3 }: ShotDiag
                 )}
                 {!player && (
                   <Target
-                    color={isGoal ? '#000' : '#007AFF'}
+                    color={textColor}
                     size={16}
                   />
                 )}
@@ -212,12 +221,20 @@ export function ShotDiagram({ shots, players, isOurTeam, periods = 3 }: ShotDiag
 
       <View style={styles.legend}>
         <View style={styles.legendItem}>
-          <View style={[styles.legendCircle, styles.goalCircle]} />
-          <Text style={styles.legendText}>Goal (Gold)</Text>
+          <View style={[styles.legendCircle, { backgroundColor: '#FFD700', borderColor: '#FFA500' }]} />
+          <Text style={styles.legendText}>Goal</Text>
         </View>
         <View style={styles.legendItem}>
-          <View style={[styles.legendCircle, styles.saveCircle]} />
-          <Text style={styles.legendText}>Save (Blue)</Text>
+          <View style={[styles.legendCircle, { backgroundColor: '#FF3B30', borderColor: '#cc2f26' }]} />
+          <Text style={styles.legendText}>High</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendCircle, { backgroundColor: '#FF9500', borderColor: '#cc7700' }]} />
+          <Text style={styles.legendText}>Med</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendCircle, { backgroundColor: '#34C759', borderColor: '#2aa147' }]} />
+          <Text style={styles.legendText}>Low</Text>
         </View>
       </View>
     </View>
