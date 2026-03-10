@@ -8,19 +8,16 @@ import {
   ScrollView,
   StyleSheet,
   Modal,
-  Dimensions,
   Alert,
 } from 'react-native';
+import { ShotRisk } from '@/types/hockey';
 
 interface GoalModalProps {
   visible: boolean;
   isOurTeam: boolean;
   onClose: () => void;
-  onOpenShotModal?: (scorerId: string, goalTimestamp: string) => void;
+  onOpenShotModal?: (scorerId: string, goalShotId: string) => void;
 }
-
-const NET_WIDTH = Dimensions.get('window').width - 32;
-const NET_HEIGHT = NET_WIDTH * 0.6;
 
 export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: GoalModalProps) {
   const { players, activeMatch, addGoal } = useHockey();
@@ -29,6 +26,7 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
   const [plusPlayers, setPlusPlayers] = useState<string[]>([]);
   const [minusPlayers, setMinusPlayers] = useState<string[]>([]);
   const [autoSelectedPlus, setAutoSelectedPlus] = useState<string[]>([]);
+  const [shotRisk, setShotRisk] = useState<ShotRisk>('medium');
 
   const rosterPlayers = activeMatch
     ? players.filter((p) =>
@@ -43,15 +41,11 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
       setPlusPlayers([]);
       setMinusPlayers([]);
       setAutoSelectedPlus([]);
+      setShotRisk('medium');
     }
   }, [visible]);
 
   const handleSave = () => {
-    console.log('=== GoalModal handleSave called ===');
-    console.log('isOurTeam:', isOurTeam);
-    console.log('scorer:', scorer);
-    console.log('minusPlayers:', minusPlayers);
-    
     if (isOurTeam && !scorer) {
       Alert.alert('Missing Information', 'Please select the goal scorer');
       return;
@@ -62,33 +56,21 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
       return;
     }
 
-    console.log('GoalModal: All validations passed, calling addGoal');
-    
     const goalData = {
       scorerId: scorer || '',
       assists: assists,
       plusPlayers: isOurTeam ? plusPlayers : [],
       minusPlayers: !isOurTeam ? minusPlayers : [],
       isOurTeam,
+      shotRisk,
     };
-    
-    console.log('GoalModal: Goal data:', goalData);
-    console.log('GoalModal: About to call addGoal function');
-    
-    const goalTimestamp = Date.now();
-    
-    addGoal(goalData);
-    console.log('GoalModal: addGoal function called (includes automatic shot recording)');
-    console.log('GoalModal: Goal timestamp:', goalTimestamp);
 
-    console.log('GoalModal: Closing modal');
+    const goalShotId = addGoal(goalData);
     resetAndClose();
-    
-    if (isOurTeam && onOpenShotModal && scorer) {
-      console.log('GoalModal: Opening shot modal for goal shot location with scorer:', scorer, 'goalTimestamp:', goalTimestamp + 1);
-      onOpenShotModal(scorer, (goalTimestamp + 1).toString());
+
+    if (isOurTeam && onOpenShotModal && scorer && goalShotId) {
+      onOpenShotModal(scorer, goalShotId);
     }
-    console.log('=== GoalModal handleSave finished ===');
   };
 
   const resetAndClose = () => {
@@ -97,13 +79,14 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
     setPlusPlayers([]);
     setMinusPlayers([]);
     setAutoSelectedPlus([]);
+    setShotRisk('medium');
     onClose();
   };
 
   const toggleAssist = (playerId: string) => {
     const wasIncluded = assists.includes(playerId);
     let newAssists: string[];
-    
+
     if (wasIncluded) {
       newAssists = assists.filter((id) => id !== playerId);
       setPlusPlayers(plusPlayers.filter((id) => id !== playerId));
@@ -117,15 +100,13 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
     } else {
       newAssists = assists;
     }
-    
+
     setAssists(newAssists);
   };
 
   const togglePlusPlayer = (playerId: string) => {
-    if (autoSelectedPlus.includes(playerId)) {
-      return;
-    }
-    
+    if (autoSelectedPlus.includes(playerId)) return;
+
     if (plusPlayers.includes(playerId)) {
       setPlusPlayers(plusPlayers.filter((id) => id !== playerId));
     } else if (plusPlayers.length < 6) {
@@ -141,6 +122,12 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
     }
   };
 
+  const riskColors: Record<ShotRisk, string> = {
+    low: '#8e8e93',
+    medium: '#FF9500',
+    high: '#FF3B30',
+  };
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <View style={styles.container}>
@@ -154,6 +141,31 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
         </View>
 
         <ScrollView style={styles.content}>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Shot Danger</Text>
+            <View style={styles.riskRow}>
+              {(['low', 'medium', 'high'] as ShotRisk[]).map((risk) => (
+                <TouchableOpacity
+                  key={risk}
+                  style={[
+                    styles.riskBadge,
+                    shotRisk === risk && { backgroundColor: riskColors[risk], borderColor: riskColors[risk] },
+                  ]}
+                  onPress={() => setShotRisk(risk)}
+                >
+                  <Text
+                    style={[
+                      styles.riskBadgeText,
+                      shotRisk === risk && styles.riskBadgeTextSelected,
+                    ]}
+                  >
+                    {risk.charAt(0).toUpperCase() + risk.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
           {isOurTeam && (
             <>
               <View style={styles.section}>
@@ -169,12 +181,12 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
                       onPress={() => {
                         const prevScorer = scorer;
                         setScorer(player.id);
-                        
+
                         if (prevScorer && autoSelectedPlus.includes(prevScorer)) {
                           setPlusPlayers(plusPlayers.filter((id) => id !== prevScorer));
                           setAutoSelectedPlus(autoSelectedPlus.filter((id) => id !== prevScorer));
                         }
-                        
+
                         if (!plusPlayers.includes(player.id)) {
                           setPlusPlayers([...plusPlayers.filter((id) => id !== prevScorer), player.id]);
                           setAutoSelectedPlus([...autoSelectedPlus.filter((id) => id !== prevScorer), player.id]);
@@ -211,8 +223,7 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
                         <Text
                           style={[
                             styles.playerBadgeNumber,
-                            assists.includes(player.id) &&
-                              styles.playerBadgeNumberSelected,
+                            assists.includes(player.id) && styles.playerBadgeNumberSelected,
                           ]}
                         >
                           {player.jerseyNumber}
@@ -224,19 +235,18 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
 
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>+ Players on Ice (Up to 6)</Text>
-                <Text style={styles.sectionHint}>Scorer and assisters are automatically selected. Select up to {6 - autoSelectedPlus.length} more.</Text>
+                <Text style={styles.sectionHint}>Scorer and assisters are automatically selected.</Text>
                 <View style={styles.playerGrid}>
                   {rosterPlayers.map((player) => {
                     const isAutoSelected = autoSelectedPlus.includes(player.id);
                     const canSelect = plusPlayers.length < 6 || plusPlayers.includes(player.id);
-                    
+
                     return (
                       <TouchableOpacity
                         key={player.id}
                         style={[
                           styles.playerBadge,
-                          plusPlayers.includes(player.id) &&
-                            styles.playerBadgeSelectedGreen,
+                          plusPlayers.includes(player.id) && styles.playerBadgeSelectedGreen,
                           isAutoSelected && styles.playerBadgeAuto,
                           !canSelect && styles.playerBadgeDisabled,
                         ]}
@@ -246,8 +256,7 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
                         <Text
                           style={[
                             styles.playerBadgeNumber,
-                            plusPlayers.includes(player.id) &&
-                              styles.playerBadgeNumberSelected,
+                            plusPlayers.includes(player.id) && styles.playerBadgeNumberSelected,
                           ]}
                         >
                           {player.jerseyNumber}
@@ -276,8 +285,7 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
                     <Text
                       style={[
                         styles.playerBadgeNumber,
-                        minusPlayers.includes(player.id) &&
-                          styles.playerBadgeNumberSelected,
+                        minusPlayers.includes(player.id) && styles.playerBadgeNumberSelected,
                       ]}
                     >
                       {player.jerseyNumber}
@@ -336,6 +344,33 @@ const styles = StyleSheet.create({
     color: '#1c1c1e',
     marginBottom: 12,
   },
+  sectionHint: {
+    fontSize: 13,
+    color: '#8e8e93',
+    marginBottom: 8,
+    fontStyle: 'italic' as const,
+  },
+  riskRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  riskBadge: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#e5e5ea',
+    alignItems: 'center',
+  },
+  riskBadgeText: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: '#1c1c1e',
+  },
+  riskBadgeTextSelected: {
+    color: '#fff',
+  },
   playerGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -363,6 +398,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF3B30',
     borderColor: '#FF3B30',
   },
+  playerBadgeAuto: {
+    opacity: 0.8,
+  },
+  playerBadgeDisabled: {
+    opacity: 0.3,
+  },
   playerBadgeNumber: {
     fontSize: 20,
     fontWeight: '700' as const,
@@ -387,38 +428,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 17,
     fontWeight: '600' as const,
-  },
-  net: {
-    width: NET_WIDTH,
-    height: NET_HEIGHT,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 3,
-    borderColor: '#FF3B30',
-    position: 'relative' as const,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  netPlaceholder: {
-    color: '#8e8e93',
-    fontSize: 16,
-    textAlign: 'center' as const,
-  },
-  shotMarker: {
-    position: 'absolute' as const,
-    width: 16,
-    height: 16,
-  },
-  sectionHint: {
-    fontSize: 13,
-    color: '#8e8e93',
-    marginBottom: 8,
-    fontStyle: 'italic' as const,
-  },
-  playerBadgeAuto: {
-    opacity: 0.8,
-  },
-  playerBadgeDisabled: {
-    opacity: 0.3,
   },
 });

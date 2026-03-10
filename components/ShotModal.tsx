@@ -1,6 +1,6 @@
 import { useHockey } from '@/contexts/hockey-context';
-import { ShotLocation } from '@/types/hockey';
-import { X, Target } from 'lucide-react-native';
+import { ShotLocation, ShotRisk } from '@/types/hockey';
+import { X } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   View,
@@ -17,16 +17,17 @@ interface ShotModalProps {
   onClose: () => void;
   preselectedScorer?: string;
   isGoalShot?: boolean;
-  goalTimestamp?: string;
+  goalShotId?: string;
 }
 
 const NET_WIDTH = Dimensions.get('window').width - 32;
 const NET_HEIGHT = NET_WIDTH * 0.6;
 
-export function ShotModal({ visible, isOurTeam, onClose, preselectedScorer, isGoalShot = false, goalTimestamp }: ShotModalProps) {
+export function ShotModal({ visible, isOurTeam, onClose, preselectedScorer, isGoalShot = false, goalShotId }: ShotModalProps) {
   const { players, activeMatch, addShot, updateGoalShotLocation } = useHockey();
   const [location, setLocation] = useState<ShotLocation | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(preselectedScorer || null);
+  const [shotRisk, setShotRisk] = useState<ShotRisk>('medium');
 
   React.useEffect(() => {
     if (visible) {
@@ -36,6 +37,7 @@ export function ShotModal({ visible, isOurTeam, onClose, preselectedScorer, isGo
     } else {
       setLocation(null);
       setSelectedPlayer(null);
+      setShotRisk('medium');
     }
   }, [visible, preselectedScorer]);
 
@@ -51,8 +53,8 @@ export function ShotModal({ visible, isOurTeam, onClose, preselectedScorer, isGo
   };
 
   const handleSave = () => {
-    if (isGoalShot && goalTimestamp) {
-      updateGoalShotLocation(goalTimestamp, location || undefined);
+    if (isGoalShot && goalShotId) {
+      updateGoalShotLocation(goalShotId, location || undefined);
     } else {
       addShot({
         playerId: selectedPlayer || undefined,
@@ -60,6 +62,7 @@ export function ShotModal({ visible, isOurTeam, onClose, preselectedScorer, isGo
         isOurTeam,
         onGoal: true,
         result: 'save',
+        shotRisk,
       });
     }
 
@@ -70,8 +73,15 @@ export function ShotModal({ visible, isOurTeam, onClose, preselectedScorer, isGo
     setTimeout(() => {
       setLocation(null);
       setSelectedPlayer(null);
+      setShotRisk('medium');
     }, 300);
     onClose();
+  };
+
+  const riskColors: Record<ShotRisk, string> = {
+    low: '#8e8e93',
+    medium: '#FF9500',
+    high: '#FF3B30',
   };
 
   return (
@@ -87,77 +97,92 @@ export function ShotModal({ visible, isOurTeam, onClose, preselectedScorer, isGo
         </View>
 
         <View style={styles.content}>
-          {isOurTeam && (
-            <>
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Shooter</Text>
-                <View style={styles.playerGrid}>
-                  {rosterPlayers.map((player) => (
-                    <TouchableOpacity
-                      key={player.id}
+          {!isGoalShot && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Shot Danger</Text>
+              <View style={styles.riskRow}>
+                {(['low', 'medium', 'high'] as ShotRisk[]).map((risk) => (
+                  <TouchableOpacity
+                    key={risk}
+                    style={[
+                      styles.riskBadge,
+                      shotRisk === risk && { backgroundColor: riskColors[risk], borderColor: riskColors[risk] },
+                    ]}
+                    onPress={() => setShotRisk(risk)}
+                  >
+                    <Text
                       style={[
-                        styles.playerBadge,
-                        selectedPlayer === player.id && styles.playerBadgeSelected,
+                        styles.riskBadgeText,
+                        shotRisk === risk && styles.riskBadgeTextSelected,
                       ]}
-                      onPress={() => setSelectedPlayer(player.id)}
                     >
-                      <Text
-                        style={[
-                          styles.playerBadgeNumber,
-                          selectedPlayer === player.id &&
-                            styles.playerBadgeNumberSelected,
-                        ]}
-                      >
-                        {player.jerseyNumber}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                      {risk.charAt(0).toUpperCase() + risk.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
+            </View>
+          )}
 
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Shot Target Location (Tap on net)</Text>
-                <TouchableOpacity
-                  style={styles.net}
-                  onPress={handleNetPress}
-                  activeOpacity={0.9}
-                >
-                  {location && selectedPlayer && (
-                    <View
+          {isOurTeam && !isGoalShot && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Shooter</Text>
+              <View style={styles.playerGrid}>
+                {rosterPlayers.map((player) => (
+                  <TouchableOpacity
+                    key={player.id}
+                    style={[
+                      styles.playerBadge,
+                      selectedPlayer === player.id && styles.playerBadgeSelected,
+                    ]}
+                    onPress={() => setSelectedPlayer(player.id)}
+                  >
+                    <Text
                       style={[
-                        styles.shotMarker,
-                        {
-                          left: location.x * NET_WIDTH - 16,
-                          top: location.y * NET_HEIGHT - 16,
-                        },
+                        styles.playerBadgeNumber,
+                        selectedPlayer === player.id && styles.playerBadgeNumberSelected,
                       ]}
                     >
-                      <View style={styles.shotCircle}>
-                        <Text style={styles.shotPlayerNumber}>
-                          {players.find(p => p.id === selectedPlayer)?.jerseyNumber}
-                        </Text>
-                      </View>
-                    </View>
-                  )}
-                  {location && !selectedPlayer && (
-                    <View
-                      style={[
-                        styles.shotMarker,
-                        {
-                          left: location.x * NET_WIDTH - 8,
-                          top: location.y * NET_HEIGHT - 8,
-                        },
-                      ]}
-                    >
-                      <Target color="#007AFF" size={16} />
-                    </View>
-                  )}
-                  {!location && (
-                    <Text style={styles.netPlaceholder}>Tap to mark where on target shot went</Text>
-                  )}
-                </TouchableOpacity>
+                      {player.jerseyNumber}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-            </>
+            </View>
+          )}
+
+          {isOurTeam && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Shot Target Location (Tap on net)</Text>
+              <TouchableOpacity
+                style={styles.net}
+                onPress={handleNetPress}
+                activeOpacity={0.9}
+              >
+                {location && (
+                  <View
+                    style={[
+                      styles.shotMarker,
+                      {
+                        left: location.x * NET_WIDTH - 16,
+                        top: location.y * NET_HEIGHT - 16,
+                      },
+                    ]}
+                  >
+                    <View style={styles.shotCircle}>
+                      <Text style={styles.shotPlayerNumber}>
+                        {selectedPlayer
+                          ? players.find(p => p.id === selectedPlayer)?.jerseyNumber
+                          : '•'}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+                {!location && (
+                  <Text style={styles.netPlaceholder}>Tap to mark where on target shot went</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           )}
         </View>
 
@@ -207,6 +232,27 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: '#1c1c1e',
     marginBottom: 12,
+  },
+  riskRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  riskBadge: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#e5e5ea',
+    alignItems: 'center',
+  },
+  riskBadgeText: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: '#1c1c1e',
+  },
+  riskBadgeTextSelected: {
+    color: '#fff',
   },
   playerGrid: {
     flexDirection: 'row',
@@ -269,31 +315,6 @@ const styles = StyleSheet.create({
   shotPlayerNumber: {
     fontSize: 14,
     fontWeight: '700' as const,
-    color: '#fff',
-  },
-  resultButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  resultButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#e5e5ea',
-    backgroundColor: '#fff',
-    alignItems: 'center',
-  },
-  resultButtonSelected: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
-  },
-  resultButtonText: {
-    fontSize: 15,
-    fontWeight: '600' as const,
-    color: '#1c1c1e',
-  },
-  resultButtonTextSelected: {
     color: '#fff',
   },
   footer: {

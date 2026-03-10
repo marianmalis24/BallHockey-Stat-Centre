@@ -1,4 +1,6 @@
 export type PlayerPosition = 'forward' | 'defense' | 'goalie';
+export type ShotRisk = 'low' | 'medium' | 'high';
+export type GameState = 'even' | 'pp' | 'sh';
 
 export interface Player {
   id: string;
@@ -22,6 +24,8 @@ export interface Shot {
   result: 'goal' | 'save' | 'miss' | 'blocked';
   goalieId?: string;
   period: number;
+  shotRisk?: ShotRisk;
+  gameState?: GameState;
 }
 
 export interface Goal {
@@ -34,6 +38,8 @@ export interface Goal {
   isOurTeam: boolean;
   goalieId?: string;
   period: number;
+  shotRisk?: ShotRisk;
+  gameState?: GameState;
 }
 
 export interface FaceoffEvent {
@@ -42,6 +48,7 @@ export interface FaceoffEvent {
   loserId: string;
   timestamp: number;
   period: number;
+  gameState?: GameState;
 }
 
 export interface PenaltyEvent {
@@ -51,6 +58,7 @@ export interface PenaltyEvent {
   timestamp: number;
   infraction: string;
   period: number;
+  gameState?: GameState;
 }
 
 export interface PossessionEvent {
@@ -59,11 +67,28 @@ export interface PossessionEvent {
   timestamp: number;
   type: 'gain' | 'loss';
   period: number;
+  gameState?: GameState;
 }
 
 export interface MatchPlayer {
   playerId: string;
   isPlaying: boolean;
+}
+
+export interface ShootoutAttempt {
+  playerId?: string;
+  result: 'goal' | 'no_goal';
+  isOurTeam: boolean;
+  round: number;
+}
+
+export interface ShootoutData {
+  attempts: ShootoutAttempt[];
+  totalRounds: number;
+  startingTeam: 'us' | 'them';
+  ourScore: number;
+  opponentScore: number;
+  completed: boolean;
 }
 
 export interface Match {
@@ -84,6 +109,11 @@ export interface Match {
   activeGoalieId: string;
   currentPeriod: number;
   centers: string[];
+  gameState?: GameState;
+  isOvertime?: boolean;
+  shootout?: ShootoutData;
+  endedAs?: 'regulation' | 'overtime' | 'shootout' | 'draw';
+  ppshStartTimestamp?: number;
 }
 
 export interface PlayerStats {

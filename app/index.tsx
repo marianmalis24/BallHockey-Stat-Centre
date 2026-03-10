@@ -4,9 +4,11 @@ import { ShotModal } from '@/components/ShotModal';
 import { PlayerActionModal } from '@/components/PlayerActionModal';
 import { PeriodSummaryModal } from '@/components/PeriodSummaryModal';
 import { MatchStatsModal } from '@/components/MatchStatsModal';
+import { FaceoffModal } from '@/components/FaceoffModal';
+import { ShootoutModal } from '@/components/ShootoutModal';
 import { Stack, router } from 'expo-router';
-import { Plus, Target, Users, BarChart3, AlertCircle, RefreshCw, Clock, TrendingUp, Shield, History } from 'lucide-react-native';
-import React, { useState } from 'react';
+import { Plus, Target, Users, BarChart3, AlertCircle, RefreshCw, Clock, TrendingUp, Shield, History, Zap, ShieldOff, Circle } from 'lucide-react-native';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,82 +16,146 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  Modal,
 } from 'react-native';
-import { Player } from '@/types/hockey';
+import { Player, GameState, ShotRisk } from '@/types/hockey';
 
 export default function GameScreen() {
-  const { activeMatch, players, endMatch, updateActiveMatch, addShot, nextPeriod } = useHockey();
+  const {
+    activeMatch,
+    players,
+    endMatch,
+    updateActiveMatch,
+    addShot,
+    nextPeriod,
+    setGameState,
+    getPPSHSummary,
+  } = useHockey();
+
   const [goalModalVisible, setGoalModalVisible] = useState(false);
   const [shotModalVisible, setShotModalVisible] = useState(false);
   const [goalType, setGoalType] = useState<'our' | 'opponent'>('our');
   const [shotType, setShotType] = useState<'our' | 'opponent'>('our');
   const [pendingGoalScorerId, setPendingGoalScorerId] = useState<string | null>(null);
-  const [pendingGoalTimestamp, setPendingGoalTimestamp] = useState<string | null>(null);
+  const [pendingGoalShotId, setPendingGoalShotId] = useState<string | null>(null);
   const [isGoalShotMode, setIsGoalShotMode] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [playerActionModalVisible, setPlayerActionModalVisible] = useState(false);
   const [periodSummaryVisible, setPeriodSummaryVisible] = useState(false);
   const [matchStatsVisible, setMatchStatsVisible] = useState(false);
+  const [faceoffModalVisible, setFaceoffModalVisible] = useState(false);
+  const [faceoffType, setFaceoffType] = useState<'win' | 'loss'>('win');
+  const [shootoutVisible, setShootoutVisible] = useState(false);
+  const [oppShotRiskVisible, setOppShotRiskVisible] = useState(false);
 
-  const handleAddGoal = (type: 'our' | 'opponent') => {
+  const handleAddGoal = useCallback((type: 'our' | 'opponent') => {
     setGoalType(type);
     setGoalModalVisible(true);
-  };
+  }, []);
 
-  const handleAddShot = (type: 'our' | 'opponent') => {
+  const handleAddShot = useCallback((type: 'our' | 'opponent') => {
     if (type === 'opponent') {
-      addShot({
-        isOurTeam: false,
-        onGoal: true,
-        result: 'save',
-      });
+      setOppShotRiskVisible(true);
     } else {
       setShotType(type);
       setShotModalVisible(true);
     }
-  };
+  }, []);
 
-  const handlePeriodAction = () => {
+  const handleOppShotWithRisk = useCallback((risk: ShotRisk) => {
+    addShot({
+      isOurTeam: false,
+      onGoal: true,
+      result: 'save',
+      shotRisk: risk,
+    });
+    setOppShotRiskVisible(false);
+  }, [addShot]);
+
+  const handleFaceoff = useCallback((type: 'win' | 'loss') => {
+    setFaceoffType(type);
+    setFaceoffModalVisible(true);
+  }, []);
+
+  const handleGameStateChange = useCallback((newState: GameState) => {
+    if (!activeMatch) return;
+
+    const currentState = activeMatch.gameState || 'even';
+    if (currentState === newState) return;
+
+    if ((currentState === 'pp' || currentState === 'sh') && newState !== currentState) {
+      const summary = getPPSHSummary();
+      if (summary) {
+        const label = summary.type === 'pp' ? 'Power Play' : 'Short Handed';
+        Alert.alert(
+          `${label} Summary`,
+          `Shots: ${summary.ourShots} for / ${summary.oppShots} against\n` +
+          `Goals: ${summary.ourGoals} for / ${summary.oppGoals} against\n` +
+          `Faceoffs: ${summary.foWins}W / ${summary.foLosses}L`
+        );
+      }
+    }
+
+    setGameState(newState);
+  }, [activeMatch, setGameState, getPPSHSummary]);
+
+  const handlePeriodAction = useCallback(() => {
     setPeriodSummaryVisible(true);
-  };
+  }, []);
 
-  const handlePeriodSummaryConfirm = () => {
+  const handlePeriodSummaryConfirm = useCallback(() => {
     if (!activeMatch) return;
 
     const currentPeriod = activeMatch.currentPeriod || 1;
     const isDraw = activeMatch.ourScore === activeMatch.opponentScore;
-    const isGameEndable = currentPeriod >= 3 && !isDraw;
+    const isOT = activeMatch.isOvertime === true;
 
     setPeriodSummaryVisible(false);
 
-    if (isGameEndable) {
-      endMatch();
+    if (currentPeriod >= 3 && !isDraw && !isOT) {
+      endMatch('regulation');
       router.replace('/stats');
-    } else {
+    } else if (isOT && !isDraw) {
+      endMatch('overtime');
+      router.replace('/stats');
+    } else if (currentPeriod < 3) {
       nextPeriod();
     }
-  };
+  }, [activeMatch, endMatch, nextPeriod]);
 
-  const handleEndMatch = () => {
-    Alert.alert('End Match', 'Are you sure you want to end this match?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'End Match',
-        style: 'destructive',
-        onPress: () => {
-          endMatch();
-          router.replace('/stats');
-        },
-      },
-    ]);
-  };
+  const handleEndAsDraw = useCallback(() => {
+    setPeriodSummaryVisible(false);
+    endMatch('draw');
+    router.replace('/stats');
+  }, [endMatch]);
 
-  const handlePlayerPress = (player: Player) => {
+  const handleStartOvertime = useCallback(() => {
+    setPeriodSummaryVisible(false);
+    nextPeriod(true);
+  }, [nextPeriod]);
+
+  const handleContinueOvertime = useCallback(() => {
+    setPeriodSummaryVisible(false);
+    nextPeriod(true);
+  }, [nextPeriod]);
+
+  const handleStartShootout = useCallback(() => {
+    setPeriodSummaryVisible(false);
+    setShootoutVisible(true);
+  }, []);
+
+  const handleShootoutComplete = useCallback(() => {
+    setShootoutVisible(false);
+    endMatch('shootout');
+    router.replace('/stats');
+  }, [endMatch]);
+
+  const handlePlayerPress = useCallback((player: Player) => {
     setSelectedPlayer(player);
     setPlayerActionModalVisible(true);
-  };
+  }, []);
 
-  const handleSwapGoalie = () => {
+  const handleSwapGoalie = useCallback(() => {
     if (!activeMatch) return;
 
     const goalies = players.filter(
@@ -121,16 +187,12 @@ export default function GameScreen() {
         }))
       );
     }
-  };
+  }, [activeMatch, players, updateActiveMatch]);
 
   if (!activeMatch) {
     return (
       <View style={styles.container}>
-        <Stack.Screen
-          options={{
-            headerShown: false,
-          }}
-        />
+        <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.emptyContainer}>
           <AlertCircle color="#8e8e93" size={64} />
           <Text style={styles.emptyTitle}>No Active Match</Text>
@@ -179,41 +241,38 @@ export default function GameScreen() {
     activeMatch.roster.some((r) => r.playerId === p.id)
   );
 
-  const activeGoalie = activeMatch
-    ? players.find((p) => p.id === activeMatch.activeGoalieId)
-    : null;
+  const activeGoalie = players.find((p) => p.id === activeMatch.activeGoalieId) ?? null;
 
-  console.log('GameScreen render - Current scores:', {
-    ourScore: activeMatch.ourScore,
-    opponentScore: activeMatch.opponentScore,
-    ourShots: activeMatch.ourShots,
-    opponentShots: activeMatch.opponentShots,
-    goalsCount: activeMatch.goals.length,
-    period: activeMatch.currentPeriod,
-  });
+  const currentGameState = activeMatch.gameState || 'even';
+
+  const periodLabel = activeMatch.isOvertime
+    ? `OT${activeMatch.currentPeriod - 3 > 0 ? activeMatch.currentPeriod - 3 : ''}`
+    : `Period ${activeMatch.currentPeriod || 1}`;
+
+  const getEndButtonText = () => {
+    const cp = activeMatch.currentPeriod || 1;
+    const isDraw = activeMatch.ourScore === activeMatch.opponentScore;
+    if (cp >= 3 && !isDraw) return 'End Match';
+    if (activeMatch.isOvertime) return `End ${periodLabel}`;
+    return `End Period ${cp}`;
+  };
 
   return (
     <View style={styles.container}>
-      <Stack.Screen
-        options={{
-          headerShown: false,
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.topBar}>
         <TouchableOpacity onPress={() => router.push('/players')}>
           <Users color="#007AFF" size={24} />
         </TouchableOpacity>
         <View style={{ alignItems: 'center' }}>
-           <Text style={styles.topBarTitle}>Live Match</Text>
-           {activeMatch && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                 <Clock size={14} color="#8e8e93" />
-                 <Text style={{ color: '#8e8e93', fontSize: 12, fontWeight: '600' }}>
-                    Period {activeMatch.currentPeriod || 1}
-                 </Text>
-              </View>
-           )}
+          <Text style={styles.topBarTitle}>Live Match</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Clock size={14} color="#8e8e93" />
+            <Text style={{ color: '#8e8e93', fontSize: 12, fontWeight: '600' as const }}>
+              {periodLabel}
+            </Text>
+          </View>
         </View>
         <TouchableOpacity onPress={() => router.push('/stats')}>
           <BarChart3 color="#007AFF" size={24} />
@@ -238,6 +297,30 @@ export default function GameScreen() {
           </View>
         </View>
 
+        <View style={styles.gameStateSection}>
+          <TouchableOpacity
+            style={[styles.gsBtn, currentGameState === 'even' && styles.gsBtnActiveEven]}
+            onPress={() => handleGameStateChange('even')}
+          >
+            <Circle size={16} color={currentGameState === 'even' ? '#fff' : '#8e8e93'} />
+            <Text style={[styles.gsBtnText, currentGameState === 'even' && styles.gsBtnTextActive]}>EV</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.gsBtn, currentGameState === 'pp' && styles.gsBtnActivePP]}
+            onPress={() => handleGameStateChange('pp')}
+          >
+            <Zap size={16} color={currentGameState === 'pp' ? '#fff' : '#FF9500'} />
+            <Text style={[styles.gsBtnText, currentGameState === 'pp' && styles.gsBtnTextActive]}>PP</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.gsBtn, currentGameState === 'sh' && styles.gsBtnActiveSH]}
+            onPress={() => handleGameStateChange('sh')}
+          >
+            <ShieldOff size={16} color={currentGameState === 'sh' ? '#fff' : '#FF3B30'} />
+            <Text style={[styles.gsBtnText, currentGameState === 'sh' && styles.gsBtnTextActive]}>SH</Text>
+          </TouchableOpacity>
+        </View>
+
         <TouchableOpacity
           style={styles.matchStatsButton}
           onPress={() => setMatchStatsVisible(true)}
@@ -253,29 +336,44 @@ export default function GameScreen() {
               style={[styles.actionCard, styles.goalCard]}
               onPress={() => handleAddGoal('our')}
             >
-              <Plus color="#fff" size={32} />
+              <Plus color="#fff" size={28} />
               <Text style={styles.actionCardTitle}>Our Goal</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionCard, styles.shotCard]}
               onPress={() => handleAddShot('our')}
             >
-              <Target color="#fff" size={32} />
+              <Target color="#fff" size={28} />
               <Text style={styles.actionCardTitle}>Our Shot</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionCard, styles.goalAgainstCard]}
               onPress={() => handleAddGoal('opponent')}
             >
-              <AlertCircle color="#fff" size={32} />
+              <AlertCircle color="#fff" size={28} />
               <Text style={styles.actionCardTitle}>Goal Against</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionCard, styles.shotAgainstCard]}
               onPress={() => handleAddShot('opponent')}
             >
-              <Target color="#fff" size={32} />
+              <Target color="#fff" size={28} />
               <Text style={styles.actionCardTitle}>Shot Against</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.faceoffRow}>
+            <TouchableOpacity
+              style={[styles.faceoffBtn, styles.foWinBtn]}
+              onPress={() => handleFaceoff('win')}
+            >
+              <Text style={styles.faceoffBtnText}>FO Win</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.faceoffBtn, styles.foLossBtn]}
+              onPress={() => handleFaceoff('loss')}
+            >
+              <Text style={styles.faceoffBtnText}>FO Loss</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -336,12 +434,7 @@ export default function GameScreen() {
         </View>
 
         <TouchableOpacity style={styles.endMatchButton} onPress={handlePeriodAction}>
-          <Text style={styles.endMatchButtonText}>
-             {activeMatch && (activeMatch.currentPeriod || 1) >= 3 && activeMatch.ourScore !== activeMatch.opponentScore
-                ? "End Match"
-                : `End Period ${activeMatch.currentPeriod || 1}`
-             }
-          </Text>
+          <Text style={styles.endMatchButtonText}>{getEndButtonText()}</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -349,10 +442,9 @@ export default function GameScreen() {
         visible={goalModalVisible}
         isOurTeam={goalType === 'our'}
         onClose={() => setGoalModalVisible(false)}
-        onOpenShotModal={(scorerId, goalTimestamp) => {
-          console.log('Opening shot modal with scorer ID:', scorerId, 'goalTimestamp:', goalTimestamp);
+        onOpenShotModal={(scorerId, goalShotId) => {
           setPendingGoalScorerId(scorerId);
-          setPendingGoalTimestamp(goalTimestamp);
+          setPendingGoalShotId(goalShotId);
           setIsGoalShotMode(true);
           setShotModalVisible(true);
         }}
@@ -364,12 +456,12 @@ export default function GameScreen() {
         onClose={() => {
           setShotModalVisible(false);
           setPendingGoalScorerId(null);
-          setPendingGoalTimestamp(null);
+          setPendingGoalShotId(null);
           setIsGoalShotMode(false);
         }}
         preselectedScorer={pendingGoalScorerId || undefined}
         isGoalShot={isGoalShotMode}
-        goalTimestamp={pendingGoalTimestamp || undefined}
+        goalShotId={pendingGoalShotId || undefined}
       />
 
       <PlayerActionModal
@@ -388,12 +480,60 @@ export default function GameScreen() {
         players={players}
         onClose={() => setPeriodSummaryVisible(false)}
         onNextPeriod={handlePeriodSummaryConfirm}
+        onEndAsDraw={handleEndAsDraw}
+        onStartOvertime={handleStartOvertime}
+        onStartShootout={handleStartShootout}
+        onContinueOvertime={handleContinueOvertime}
       />
 
       <MatchStatsModal
         visible={matchStatsVisible}
         onClose={() => setMatchStatsVisible(false)}
       />
+
+      <FaceoffModal
+        visible={faceoffModalVisible}
+        type={faceoffType}
+        onClose={() => setFaceoffModalVisible(false)}
+      />
+
+      <ShootoutModal
+        visible={shootoutVisible}
+        onClose={() => setShootoutVisible(false)}
+        onComplete={handleShootoutComplete}
+      />
+
+      <Modal visible={oppShotRiskVisible} animationType="fade" transparent>
+        <View style={styles.riskOverlay}>
+          <View style={styles.riskModal}>
+            <Text style={styles.riskModalTitle}>Shot Danger Level</Text>
+            <TouchableOpacity
+              style={[styles.riskOption, { backgroundColor: '#8e8e93' }]}
+              onPress={() => handleOppShotWithRisk('low')}
+            >
+              <Text style={styles.riskOptionText}>Low</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.riskOption, { backgroundColor: '#FF9500' }]}
+              onPress={() => handleOppShotWithRisk('medium')}
+            >
+              <Text style={styles.riskOptionText}>Medium</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.riskOption, { backgroundColor: '#FF3B30' }]}
+              onPress={() => handleOppShotWithRisk('high')}
+            >
+              <Text style={styles.riskOptionText}>High</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.riskCancel}
+              onPress={() => setOppShotRiskVisible(false)}
+            >
+              <Text style={styles.riskCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -431,7 +571,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600' as const,
     color: '#8e8e93',
-    textAlign: 'center',
+    textAlign: 'center' as const,
     marginBottom: 16,
   },
   scoreBoard: {
@@ -466,6 +606,41 @@ const styles = StyleSheet.create({
     height: 80,
     backgroundColor: '#3a3a3c',
     marginHorizontal: 16,
+  },
+  gameStateSection: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    backgroundColor: '#1c1c1e',
+    borderRadius: 12,
+    padding: 4,
+    gap: 4,
+  },
+  gsBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  gsBtnActiveEven: {
+    backgroundColor: '#3a3a3c',
+  },
+  gsBtnActivePP: {
+    backgroundColor: '#FF9500',
+  },
+  gsBtnActiveSH: {
+    backgroundColor: '#FF3B30',
+  },
+  gsBtnText: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: '#8e8e93',
+  },
+  gsBtnTextActive: {
+    color: '#fff',
   },
   actionsSection: {
     paddingHorizontal: 16,
@@ -508,7 +683,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600' as const,
     color: '#fff',
-    textAlign: 'center',
+    textAlign: 'center' as const,
+  },
+  faceoffRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+  },
+  faceoffBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  foWinBtn: {
+    backgroundColor: '#2d6a4f',
+  },
+  foLossBtn: {
+    backgroundColor: '#6c3d1a',
+  },
+  faceoffBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600' as const,
   },
   rosterSection: {
     paddingHorizontal: 16,
@@ -545,7 +742,7 @@ const styles = StyleSheet.create({
     fontWeight: '500' as const,
     color: '#fff',
     marginBottom: 2,
-    textAlign: 'center',
+    textAlign: 'center' as const,
   },
   rosterPosition: {
     fontSize: 10,
@@ -580,7 +777,7 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: '#8e8e93',
-    textAlign: 'center',
+    textAlign: 'center' as const,
     marginBottom: 32,
   },
   startButton: {
@@ -689,5 +886,46 @@ const styles = StyleSheet.create({
   goalieLabel: {
     fontSize: 14,
     color: '#34C759',
+  },
+  riskOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  riskModal: {
+    backgroundColor: '#1c1c1e',
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    gap: 10,
+  },
+  riskModalTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: '#fff',
+    textAlign: 'center' as const,
+    marginBottom: 8,
+  },
+  riskOption: {
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  riskOptionText: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '600' as const,
+  },
+  riskCancel: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  riskCancelText: {
+    color: '#8e8e93',
+    fontSize: 16,
+    fontWeight: '500' as const,
   },
 });

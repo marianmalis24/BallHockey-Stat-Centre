@@ -14,6 +14,8 @@ import {
   GoalieStats,
   PlayerMatchHistory,
   OpponentStats,
+  GameState,
+  ShootoutData,
 } from '@/types/hockey';
 
 const PLAYERS_KEY = 'hockey_players';
@@ -128,6 +130,7 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         activeGoalieId,
         currentPeriod: 1,
         centers: centers || [],
+        gameState: 'even',
       };
 
       const updated = [...matches, newMatch];
@@ -152,6 +155,71 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
     [activeMatch, matches]
   );
 
+  const setGameState = useCallback(
+    (newState: GameState) => {
+      if (!activeMatch) return;
+
+      const updates: Partial<Match> = {
+        gameState: newState,
+      };
+
+      if (newState === 'pp' || newState === 'sh') {
+        updates.ppshStartTimestamp = Date.now();
+      } else {
+        updates.ppshStartTimestamp = undefined;
+      }
+
+      const updatedMatch = { ...activeMatch, ...updates };
+      const updatedMatches = matches.map((m) =>
+        m.id === activeMatch.id ? updatedMatch : m
+      );
+
+      saveMatches(updatedMatches);
+      setActiveMatch(updatedMatch);
+    },
+    [activeMatch, matches]
+  );
+
+  const getPPSHSummary = useCallback(() => {
+    if (!activeMatch || !activeMatch.ppshStartTimestamp) return null;
+
+    const startTs = activeMatch.ppshStartTimestamp;
+    const gs = activeMatch.gameState;
+
+    const shots = activeMatch.shots.filter(
+      (s) => s.timestamp >= startTs && s.gameState === gs
+    );
+    const goals = activeMatch.goals.filter(
+      (g) => g.timestamp >= startTs && g.gameState === gs
+    );
+    const faceoffs = activeMatch.faceoffs.filter(
+      (f) => f.timestamp >= startTs && f.gameState === gs
+    );
+
+    const ourShots = shots.filter((s) => s.isOurTeam).length;
+    const oppShots = shots.filter((s) => !s.isOurTeam).length;
+    const ourGoals = goals.filter((g) => g.isOurTeam).length;
+    const oppGoals = goals.filter((g) => !g.isOurTeam).length;
+
+    let foWins = 0;
+    let foLosses = 0;
+    faceoffs.forEach((f) => {
+      const winnerIsUs = activeMatch.roster.some((r) => r.playerId === f.winnerId);
+      if (winnerIsUs) foWins++;
+      else foLosses++;
+    });
+
+    return {
+      type: gs,
+      ourShots,
+      oppShots,
+      ourGoals,
+      oppGoals,
+      foWins,
+      foLosses,
+    };
+  }, [activeMatch]);
+
   const addGoal = useCallback(
     (goal: Omit<Goal, 'id' | 'timestamp' | 'period'>) => {
       if (!activeMatch) {
@@ -161,25 +229,26 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
 
       console.log('=== ADD GOAL START ===');
       console.log('Goal data:', goal);
-      console.log('Current match scores:', activeMatch.ourScore, activeMatch.opponentScore);
-      console.log('Current goals array length:', activeMatch.goals.length);
+
+      const now = Date.now();
+      const currentGameState = activeMatch.gameState || 'even';
 
       const newGoal: Goal = {
         ...goal,
-        id: Date.now().toString(),
-        timestamp: Date.now(),
+        id: now.toString(),
+        timestamp: now,
         goalieId: !goal.isOurTeam ? activeMatch.activeGoalieId : undefined,
         period: activeMatch.currentPeriod || 1,
+        gameState: currentGameState,
       };
 
       const newOurScore = goal.isOurTeam ? activeMatch.ourScore + 1 : activeMatch.ourScore;
       const newOpponentScore = !goal.isOurTeam ? activeMatch.opponentScore + 1 : activeMatch.opponentScore;
 
-      console.log('Calculated new scores - Our:', newOurScore, 'Opponent:', newOpponentScore);
-
+      const goalShotId = (now + 1).toString();
       const goalShot: Shot = {
-        id: (Date.now() + 1).toString(),
-        timestamp: Date.now() + 1,
+        id: goalShotId,
+        timestamp: now + 1,
         playerId: goal.scorerId,
         location: undefined,
         isOurTeam: goal.isOurTeam,
@@ -187,9 +256,9 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         result: 'goal',
         goalieId: !goal.isOurTeam ? activeMatch.activeGoalieId : undefined,
         period: activeMatch.currentPeriod || 1,
+        shotRisk: goal.shotRisk,
+        gameState: currentGameState,
       };
-
-      console.log('Created goal shot:', goalShot);
 
       const updatedMatch = {
         ...activeMatch,
@@ -201,26 +270,18 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         opponentShots: !goal.isOurTeam ? activeMatch.opponentShots + 1 : activeMatch.opponentShots,
       };
 
-      console.log('Updated match object:', {
-        ourScore: updatedMatch.ourScore,
-        opponentScore: updatedMatch.opponentScore,
-        ourShots: updatedMatch.ourShots,
-        opponentShots: updatedMatch.opponentShots,
-        goalsLength: updatedMatch.goals.length,
-      });
+      console.log('New scores - Our:', newOurScore, 'Opponent:', newOpponentScore);
 
       const updatedMatches = matches.map((m) =>
         m.id === activeMatch.id ? updatedMatch : m
       );
 
-      console.log('Saving to storage and updating state');
-      console.log('Updated matches array:', updatedMatches.map(m => ({ id: m.id, ourScore: m.ourScore, opponentScore: m.opponentScore })));
-      
       saveMatches(updatedMatches);
       setActiveMatch(updatedMatch);
-      
-      console.log('State updated. New activeMatch scores should be:', updatedMatch.ourScore, updatedMatch.opponentScore);
+
       console.log('=== ADD GOAL END ===');
+
+      return goalShotId;
     },
     [activeMatch, matches]
   );
@@ -229,12 +290,15 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
     (shot: Omit<Shot, 'id' | 'timestamp' | 'period'>) => {
       if (!activeMatch) return;
 
+      const currentGameState = activeMatch.gameState || 'even';
+
       const newShot: Shot = {
         ...shot,
         id: Date.now().toString(),
         timestamp: Date.now(),
         goalieId: !shot.isOurTeam ? activeMatch.activeGoalieId : undefined,
         period: activeMatch.currentPeriod || 1,
+        gameState: currentGameState,
       };
 
       const updatedMatch = {
@@ -257,17 +321,24 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
   );
 
   const updateGoalShotLocation = useCallback(
-    (goalId: string, location: ShotLocation | undefined) => {
+    (goalShotId: string, location: ShotLocation | undefined) => {
       if (!activeMatch) return;
 
-      const goalShot = activeMatch.shots.find(
-        (s) => s.result === 'goal' && s.timestamp === parseInt(goalId)
-      );
+      let goalShot = activeMatch.shots.find((s) => s.id === goalShotId);
 
-      if (!goalShot) return;
+      if (!goalShot) {
+        goalShot = [...activeMatch.shots].reverse().find(
+          (s) => s.result === 'goal' && !s.location
+        );
+      }
+
+      if (!goalShot) {
+        console.warn('updateGoalShotLocation: No matching goal shot found');
+        return;
+      }
 
       const updatedShots = activeMatch.shots.map((s) =>
-        s.id === goalShot.id ? { ...s, location } : s
+        s.id === goalShot!.id ? { ...s, location } : s
       );
 
       const updatedMatch = {
@@ -294,6 +365,7 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         id: Date.now().toString(),
         timestamp: Date.now(),
         period: activeMatch.currentPeriod || 1,
+        gameState: activeMatch.gameState || 'even',
       };
 
       const updatedMatch = {
@@ -320,6 +392,7 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         id: Date.now().toString(),
         timestamp: Date.now(),
         period: activeMatch.currentPeriod || 1,
+        gameState: activeMatch.gameState || 'even',
       };
 
       const updatedMatch = {
@@ -346,6 +419,7 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         id: Date.now().toString(),
         timestamp: Date.now(),
         period: activeMatch.currentPeriod || 1,
+        gameState: activeMatch.gameState || 'even',
       };
 
       const updatedMatch = {
@@ -363,12 +437,15 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
     [activeMatch, matches]
   );
 
-  const nextPeriod = useCallback(() => {
+  const nextPeriod = useCallback((isOvertime?: boolean) => {
     if (!activeMatch) return;
 
     const updatedMatch = {
       ...activeMatch,
       currentPeriod: (activeMatch.currentPeriod || 1) + 1,
+      isOvertime: isOvertime || false,
+      gameState: 'even' as GameState,
+      ppshStartTimestamp: undefined,
     };
 
     const updatedMatches = matches.map((m) =>
@@ -379,10 +456,15 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
     setActiveMatch(updatedMatch);
   }, [activeMatch, matches]);
 
-  const endMatch = useCallback(() => {
+  const endMatch = useCallback((endedAs?: 'regulation' | 'overtime' | 'shootout' | 'draw') => {
     if (!activeMatch) return;
 
-    const updatedMatch = { ...activeMatch, isActive: false };
+    const updatedMatch = {
+      ...activeMatch,
+      isActive: false,
+      endedAs: endedAs || 'regulation',
+      gameState: 'even' as GameState,
+    };
     const updatedMatches = matches.map((m) =>
       m.id === activeMatch.id ? updatedMatch : m
     );
@@ -391,11 +473,38 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
     setActiveMatch(null);
   }, [activeMatch, matches]);
 
+  const updateShootout = useCallback(
+    (shootout: ShootoutData) => {
+      if (!activeMatch) return;
+
+      const updatedMatch = {
+        ...activeMatch,
+        shootout,
+      };
+
+      if (shootout.completed) {
+        if (shootout.ourScore > shootout.opponentScore) {
+          updatedMatch.ourScore = activeMatch.ourScore + 1;
+        } else {
+          updatedMatch.opponentScore = activeMatch.opponentScore + 1;
+        }
+      }
+
+      const updatedMatches = matches.map((m) =>
+        m.id === activeMatch.id ? updatedMatch : m
+      );
+
+      saveMatches(updatedMatches);
+      setActiveMatch(updatedMatch);
+    },
+    [activeMatch, matches]
+  );
+
   const deleteMatch = useCallback(
     (matchId: string) => {
       const updatedMatches = matches.filter((m) => m.id !== matchId);
       saveMatches(updatedMatches);
-      
+
       if (activeMatch && activeMatch.id === matchId) {
         setActiveMatch(null);
       }
@@ -424,13 +533,15 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
       playerMatches.forEach((match) => {
         let matchGoals = 0;
         let matchAssists = 0;
-        let matchPlusMinus = 0;
+        let _matchPlusMinus = 0;
+        let matchWeightedPlusMinus = 0;
         let matchShots = 0;
         let matchPenaltyMinutes = 0;
         let matchPossessionGains = 0;
         let matchPossessionLosses = 0;
         let matchFaceoffWins = 0;
         let matchFaceoffLosses = 0;
+        let matchHighRiskShots = 0;
 
         match.goals.forEach((goal) => {
           if (goal.scorerId === playerId) {
@@ -441,13 +552,26 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
             assists++;
             matchAssists++;
           }
+
+          let plusWeight = 1;
+          let minusWeight = 1;
+          if (goal.gameState === 'pp') {
+            plusWeight = 0.7;
+            minusWeight = 1.5;
+          } else if (goal.gameState === 'sh') {
+            plusWeight = 1.5;
+            minusWeight = 0.5;
+          }
+
           if (goal.isOurTeam && goal.plusPlayers.includes(playerId)) {
             plusMinus++;
-            matchPlusMinus++;
+            _matchPlusMinus++;
+            matchWeightedPlusMinus += plusWeight;
           }
           if (!goal.isOurTeam && goal.minusPlayers.includes(playerId)) {
             plusMinus--;
-            matchPlusMinus--;
+            _matchPlusMinus--;
+            matchWeightedPlusMinus -= minusWeight;
           }
         });
 
@@ -455,6 +579,7 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
           if (shot.playerId === playerId && shot.isOurTeam) {
             shots++;
             matchShots++;
+            if (shot.shotRisk === 'high') matchHighRiskShots++;
           }
         });
 
@@ -494,7 +619,7 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         const matchRating = calculateRating(
           matchGoals,
           matchAssists,
-          matchPlusMinus,
+          matchWeightedPlusMinus,
           matchShotPercentage,
           matchPossessionGains,
           matchPossessionLosses,
@@ -502,7 +627,8 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
           matchFaceoffWins,
           matchFaceoffLosses,
           matchShots,
-          player?.position
+          player?.position,
+          matchHighRiskShots
         );
         totalRating += matchRating;
       });
@@ -543,47 +669,59 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
       let shotsAgainst = 0;
       let saves = 0;
       let goalsAgainst = 0;
+      let weightedGoalsAgainst = 0;
 
       playerMatches.forEach((match) => {
         const hasDetailedStats = match.shots.some(s => s.goalieId) || match.goals.some(g => g.goalieId);
-        
+
         if (hasDetailedStats) {
-             const matchGoalsAgainst = match.goals.filter(g => !g.isOurTeam && g.goalieId === playerId).length;
-             const matchShotsSaved = match.shots.filter(s => !s.isOurTeam && s.goalieId === playerId && s.result === 'save').length;
-             
-             goalsAgainst += matchGoalsAgainst;
-             saves += matchShotsSaved;
-             shotsAgainst += matchGoalsAgainst + matchShotsSaved;
+          const matchGoals = match.goals.filter(g => !g.isOurTeam && g.goalieId === playerId);
+          const matchGoalsAgainst = matchGoals.length;
+          const matchShotsSaved = match.shots.filter(s => !s.isOurTeam && s.goalieId === playerId && s.result === 'save').length;
+
+          goalsAgainst += matchGoalsAgainst;
+          saves += matchShotsSaved;
+          shotsAgainst += matchGoalsAgainst + matchShotsSaved;
+
+          matchGoals.forEach((g) => {
+            let weight = 1;
+            if (g.gameState === 'sh') weight = 0.5;
+            else if (g.gameState === 'pp') weight = 1.3;
+
+            if (g.shotRisk === 'high') weight *= 0.8;
+            else if (g.shotRisk === 'low') weight *= 1.3;
+
+            weightedGoalsAgainst += weight;
+          });
         } else {
-             // Only count if this goalie was the active goalie at the end of match (imperfect fallback)
-             // or if they were the ONLY goalie in roster
-             const goaliesInRoster = match.roster.filter(r => 
-                players.find(p => p.id === r.playerId)?.position === 'goalie'
-             );
-             
-             if (goaliesInRoster.length === 1 && goaliesInRoster[0].playerId === playerId) {
-                 const opponentShots = match.opponentShots;
-                 const opponentGoals = match.opponentScore;
-                 shotsAgainst += opponentShots;
-                 goalsAgainst += opponentGoals;
-                 saves += opponentShots - opponentGoals;
-             } else if (match.activeGoalieId === playerId) {
-                // Better fallback: assume active goalie at end took all stats if multiple goalies
-                 const opponentShots = match.opponentShots;
-                 const opponentGoals = match.opponentScore;
-                 shotsAgainst += opponentShots;
-                 goalsAgainst += opponentGoals;
-                 saves += opponentShots - opponentGoals;
-             }
+          const goaliesInRoster = match.roster.filter(r =>
+            players.find(p => p.id === r.playerId)?.position === 'goalie'
+          );
+
+          if (goaliesInRoster.length === 1 && goaliesInRoster[0].playerId === playerId) {
+            const opponentShots = match.opponentShots;
+            const opponentGoals = match.opponentScore;
+            shotsAgainst += opponentShots;
+            goalsAgainst += opponentGoals;
+            saves += opponentShots - opponentGoals;
+            weightedGoalsAgainst += opponentGoals;
+          } else if (match.activeGoalieId === playerId) {
+            const opponentShots = match.opponentShots;
+            const opponentGoals = match.opponentScore;
+            shotsAgainst += opponentShots;
+            goalsAgainst += opponentGoals;
+            saves += opponentShots - opponentGoals;
+            weightedGoalsAgainst += opponentGoals;
+          }
         }
       });
 
       const savePercentage = shotsAgainst > 0 ? (saves / shotsAgainst) * 100 : 0;
-      
+
       let rating = 6.0;
       if (shotsAgainst > 0) {
         const savesBonus = saves * 0.02;
-        const goalsAgainstPenalty = goalsAgainst * 0.16;
+        const goalsAgainstPenalty = weightedGoalsAgainst * 0.16;
         rating = rating + savesBonus - goalsAgainstPenalty;
       }
 
@@ -594,7 +732,7 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         saves,
         goalsAgainst,
         savePercentage,
-        rating,
+        rating: Math.min(10, Math.max(0, rating)),
       };
     },
     [matches, players]
@@ -608,69 +746,83 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
 
       return playerMatches
         .map((match) => {
-          let goals = 0;
-          let assists = 0;
-          let plusMinus = 0;
-          let shots = 0;
-          let penaltyMinutes = 0;
+          let mGoals = 0;
+          let mAssists = 0;
+          let mPlusMinus = 0;
+          let mWeightedPM = 0;
+          let mShots = 0;
+          let mPenaltyMinutes = 0;
+          let mHighRisk = 0;
 
           match.goals.forEach((goal) => {
-            if (goal.scorerId === playerId) goals++;
-            if (goal.assists.includes(playerId)) assists++;
-            if (goal.isOurTeam && goal.plusPlayers.includes(playerId)) plusMinus++;
-            if (!goal.isOurTeam && goal.minusPlayers.includes(playerId)) plusMinus--;
+            if (goal.scorerId === playerId) mGoals++;
+            if (goal.assists.includes(playerId)) mAssists++;
+
+            let pw = 1;
+            let mw = 1;
+            if (goal.gameState === 'pp') { pw = 0.7; mw = 1.5; }
+            else if (goal.gameState === 'sh') { pw = 1.5; mw = 0.5; }
+
+            if (goal.isOurTeam && goal.plusPlayers.includes(playerId)) { mPlusMinus++; mWeightedPM += pw; }
+            if (!goal.isOurTeam && goal.minusPlayers.includes(playerId)) { mPlusMinus--; mWeightedPM -= mw; }
           });
 
           match.shots.forEach((shot) => {
-            if (shot.playerId === playerId && shot.isOurTeam) shots++;
-          });
-
-          match.penalties.forEach((pen) => {
-            if (pen.playerId === playerId) penaltyMinutes += pen.minutes;
-          });
-
-          const shotPercentage = shots > 0 ? (goals / shots) * 100 : 0;
-
-          let possessionGains = 0;
-          let possessionLosses = 0;
-          match.possessions.forEach((poss) => {
-            if (poss.playerId === playerId) {
-              if (poss.type === 'gain') possessionGains++;
-              else possessionLosses++;
+            if (shot.playerId === playerId && shot.isOurTeam) {
+              mShots++;
+              if (shot.shotRisk === 'high') mHighRisk++;
             }
           });
 
-          let faceoffWins = 0;
-          let faceoffLosses = 0;
+          match.penalties.forEach((pen) => {
+            if (pen.playerId === playerId) mPenaltyMinutes += pen.minutes;
+          });
+
+          const shotPercentage = mShots > 0 ? (mGoals / mShots) * 100 : 0;
+
+          let possGain = 0;
+          let possLoss = 0;
+          match.possessions.forEach((poss) => {
+            if (poss.playerId === playerId) {
+              if (poss.type === 'gain') possGain++;
+              else possLoss++;
+            }
+          });
+
+          let foW = 0;
+          let foL = 0;
           if (match.faceoffs) {
             match.faceoffs.forEach((faceoff) => {
-              if (faceoff.winnerId === playerId) faceoffWins++;
-              if (faceoff.loserId === playerId) faceoffLosses++;
+              if (faceoff.winnerId === playerId) foW++;
+              if (faceoff.loserId === playerId) foL++;
             });
           }
 
+          const player = players.find(p => p.id === playerId);
           const rating = calculateRating(
-            goals,
-            assists,
-            plusMinus,
+            mGoals,
+            mAssists,
+            mWeightedPM,
             shotPercentage,
-            possessionGains,
-            possessionLosses,
-            penaltyMinutes,
-            faceoffWins,
-            faceoffLosses,
-            shots
+            possGain,
+            possLoss,
+            mPenaltyMinutes,
+            foW,
+            foL,
+            mShots,
+            player?.position,
+            mHighRisk
           );
 
           return {
             matchId: match.id,
             date: match.date,
             opponentName: match.opponentName,
-            goals,
-            assists,
-            plusMinus,
-            penaltyMinutes,
-            shots,
+            goals: mGoals,
+            assists: mAssists,
+            plusMinus: mPlusMinus,
+            penaltyMinutes: mPenaltyMinutes,
+            shots: mShots,
             rating,
             ourScore: match.ourScore,
             opponentScore: match.opponentScore,
@@ -678,7 +830,7 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         })
         .sort((a, b) => b.date - a.date);
     },
-    [matches]
+    [matches, players]
   );
 
   const calculateOpponentStats = useCallback((): OpponentStats[] => {
@@ -735,6 +887,9 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
     nextPeriod,
     endMatch,
     deleteMatch,
+    setGameState,
+    getPPSHSummary,
+    updateShootout,
     calculatePlayerStats,
     calculateGoalieStats,
     calculatePlayerMatchHistory,
@@ -745,7 +900,7 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
 function calculateRating(
   goals: number,
   assists: number,
-  plusMinus: number,
+  weightedPlusMinus: number,
   shotPercentage: number,
   possessionGains: number,
   possessionLosses: number,
@@ -753,7 +908,8 @@ function calculateRating(
   faceoffWins: number,
   faceoffLosses: number,
   shots: number,
-  position?: string
+  position?: string,
+  highRiskShots?: number
 ): number {
   if (position === 'goalie') {
     return 6.0;
@@ -767,19 +923,25 @@ function calculateRating(
   else if (points >= 1) rating += 0.8;
   else if (points === 0) rating -= 0.3;
 
-  if (plusMinus >= 3) rating += 1.5;
-  else if (plusMinus >= 2) rating += 1.0;
-  else if (plusMinus >= 1) rating += 0.5;
-  else if (plusMinus === 0) rating += 0;
-  else if (plusMinus === -1) rating -= 0.5;
-  else if (plusMinus === -2) rating -= 1.2;
-  else if (plusMinus <= -3) rating -= 2.0;
+  if (weightedPlusMinus >= 3) rating += 1.5;
+  else if (weightedPlusMinus >= 2) rating += 1.0;
+  else if (weightedPlusMinus >= 1) rating += 0.5;
+  else if (weightedPlusMinus >= 0) rating += 0;
+  else if (weightedPlusMinus >= -1) rating -= 0.5;
+  else if (weightedPlusMinus >= -2) rating -= 1.2;
+  else rating -= 2.0;
 
   if (shots > 0) {
     if (shotPercentage >= 30) rating += 0.8;
     else if (shotPercentage >= 20) rating += 0.5;
     else if (shotPercentage >= 10) rating += 0.2;
     else if (shotPercentage < 10 && shots >= 5) rating -= 0.3;
+  }
+
+  if (highRiskShots && highRiskShots > 0) {
+    const highRiskRatio = highRiskShots / shots;
+    if (highRiskRatio >= 0.5) rating += 0.4;
+    else if (highRiskRatio >= 0.3) rating += 0.2;
   }
 
   if (possessionGains + possessionLosses > 0) {

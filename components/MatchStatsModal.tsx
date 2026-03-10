@@ -1,7 +1,8 @@
 import { useHockey } from '@/contexts/hockey-context';
 import { X } from 'lucide-react-native';
-import React from 'react';
+import React, { useState } from 'react';
 import { getRatingColor } from '@/constants/ratingColors';
+import { GameState } from '@/types/hockey';
 import {
   View,
   Text,
@@ -10,7 +11,6 @@ import {
   StyleSheet,
   Modal,
 } from 'react-native';
-
 
 interface MatchStatsModalProps {
   visible: boolean;
@@ -41,10 +41,22 @@ interface GoalieMatchStats {
 
 export function MatchStatsModal({ visible, onClose }: MatchStatsModalProps) {
   const { players, activeMatch } = useHockey();
+  const [situationFilter, setSituationFilter] = useState<'all' | GameState>('all');
 
   if (!activeMatch) {
     return null;
   }
+
+  const filterByState = <T extends { gameState?: GameState }>(items: T[]): T[] => {
+    if (situationFilter === 'all') return items;
+    return items.filter((i) => i.gameState === situationFilter);
+  };
+
+  const filteredGoals = filterByState(activeMatch.goals);
+  const filteredShots = filterByState(activeMatch.shots);
+  const filteredPenalties = filterByState(activeMatch.penalties);
+  const filteredPossessions = filterByState(activeMatch.possessions);
+  const filteredFaceoffs = filterByState(activeMatch.faceoffs || []);
 
   const calculateMatchStats = (playerId: string): PlayerMatchStats => {
     let goals = 0;
@@ -57,34 +69,32 @@ export function MatchStatsModal({ visible, onClose }: MatchStatsModalProps) {
     let faceoffLosses = 0;
     let shots = 0;
 
-    activeMatch.goals.forEach((goal) => {
+    filteredGoals.forEach((goal) => {
       if (goal.scorerId === playerId) goals++;
       if (goal.assists.includes(playerId)) assists++;
       if (goal.isOurTeam && goal.plusPlayers.includes(playerId)) plusMinus++;
       if (!goal.isOurTeam && goal.minusPlayers.includes(playerId)) plusMinus--;
     });
 
-    activeMatch.shots.forEach((shot) => {
+    filteredShots.forEach((shot) => {
       if (shot.playerId === playerId && shot.isOurTeam) shots++;
     });
 
-    activeMatch.penalties.forEach((penalty) => {
+    filteredPenalties.forEach((penalty) => {
       if (penalty.playerId === playerId) penaltyMinutes += penalty.minutes;
     });
 
-    activeMatch.possessions.forEach((poss) => {
+    filteredPossessions.forEach((poss) => {
       if (poss.playerId === playerId) {
         if (poss.type === 'gain') possessionGains++;
         else possessionLosses++;
       }
     });
 
-    if (activeMatch.faceoffs) {
-      activeMatch.faceoffs.forEach((faceoff) => {
-        if (faceoff.winnerId === playerId) faceoffWins++;
-        if (faceoff.loserId === playerId) faceoffLosses++;
-      });
-    }
+    filteredFaceoffs.forEach((faceoff) => {
+      if (faceoff.winnerId === playerId) faceoffWins++;
+      if (faceoff.loserId === playerId) faceoffLosses++;
+    });
 
     const shotPercentage = shots > 0 ? (goals / shots) * 100 : 0;
     const rating = calculateRating(
@@ -115,10 +125,10 @@ export function MatchStatsModal({ visible, onClose }: MatchStatsModalProps) {
   };
 
   const calculateGoalieMatchStats = (playerId: string): GoalieMatchStats => {
-    const goalsAgainst = activeMatch.goals.filter(
+    const goalsAgainst = filteredGoals.filter(
       (g) => !g.isOurTeam && g.goalieId === playerId
     ).length;
-    const saves = activeMatch.shots.filter(
+    const saves = filteredShots.filter(
       (s) => !s.isOurTeam && s.goalieId === playerId && s.result === 'save'
     ).length;
     const shotsAgainst = goalsAgainst + saves;
@@ -178,6 +188,20 @@ export function MatchStatsModal({ visible, onClose }: MatchStatsModalProps) {
           </TouchableOpacity>
         </View>
 
+        <View style={styles.situationFilter}>
+          {(['all', 'even', 'pp', 'sh'] as const).map((s) => (
+            <TouchableOpacity
+              key={s}
+              style={[styles.situationBtn, situationFilter === s && styles.situationBtnActive]}
+              onPress={() => setSituationFilter(s)}
+            >
+              <Text style={[styles.situationBtnText, situationFilter === s && styles.situationBtnTextActive]}>
+                {s === 'all' ? 'All' : s.toUpperCase()}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         <ScrollView style={styles.content}>
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Skaters</Text>
@@ -200,7 +224,7 @@ export function MatchStatsModal({ visible, onClose }: MatchStatsModalProps) {
 
                 return (
                   <View key={player.id} style={styles.tableRow}>
-                    <View style={[styles.tableCell, styles.playerColumn]}>
+                    <View style={[styles.playerColumnView]}>
                       <View style={styles.playerBadge}>
                         <Text style={styles.playerNumber}>{player.jerseyNumber}</Text>
                       </View>
@@ -273,7 +297,7 @@ export function MatchStatsModal({ visible, onClose }: MatchStatsModalProps) {
 
                   return (
                     <View key={player.id} style={styles.tableRow}>
-                      <View style={[styles.tableCell, styles.goalieNameColumn]}>
+                      <View style={[styles.goalieNameColumnView]}>
                         <View style={styles.playerBadge}>
                           <Text style={styles.playerNumber}>{player.jerseyNumber}</Text>
                         </View>
@@ -341,7 +365,7 @@ function calculateRating(
       ? Math.min(10, (possessionGains / (possessionGains + possessionLosses)) * 10)
       : 5;
   const disciplineRating = Math.max(0, 10 - penaltyMinutes * 0.5);
-  
+
   const faceoffTotal = faceoffWins + faceoffLosses;
   const faceoffRating = faceoffTotal > 0 ? (faceoffWins / faceoffTotal) * 10 : 5;
 
@@ -355,7 +379,7 @@ function calculateRating(
     1.0;
 
   const scaledRating = 6.0 + (baseRating / 10) * 4.0;
-  
+
   return Math.min(10, Math.max(0, scaledRating));
 }
 
@@ -390,6 +414,32 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: 4,
+  },
+  situationFilter: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e5ea',
+  },
+  situationBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: '#f2f2f7',
+  },
+  situationBtnActive: {
+    backgroundColor: '#007AFF',
+  },
+  situationBtnText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: '#8e8e93',
+  },
+  situationBtnTextActive: {
+    color: '#fff',
   },
   content: {
     flex: 1,
@@ -438,15 +488,21 @@ const styles = StyleSheet.create({
   },
   playerColumn: {
     flex: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
     textAlign: 'left' as const,
+  },
+  playerColumnView: {
+    flex: 2,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
   },
   goalieNameColumn: {
     flex: 2.5,
-    flexDirection: 'row',
-    alignItems: 'center',
     textAlign: 'left' as const,
+  },
+  goalieNameColumnView: {
+    flex: 2.5,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
   },
   statColumn: {
     flex: 0.8,

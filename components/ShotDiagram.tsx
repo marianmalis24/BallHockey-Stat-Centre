@@ -1,6 +1,6 @@
 import { Shot, Player } from '@/types/hockey';
 import { Target } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -41,42 +41,39 @@ export function ShotDiagram({ shots, players, isOurTeam, periods = 3 }: ShotDiag
     return true;
   });
 
-  const adjustedShots = filteredShots.map((shot, index) => {
-    if (!shot.location) {
-      return {
-        ...shot,
-        location: { x: 0.5, y: 0.5 }
-      };
-    }
-
-    const COLLISION_THRESHOLD = 0.05;
-    let adjustedX = shot.location.x;
-    let adjustedY = shot.location.y;
-
-    for (let i = 0; i < index; i++) {
-      const otherShot = filteredShots[i];
-      if (!otherShot.location) continue;
-
-      const dx = adjustedX - otherShot.location.x;
-      const dy = adjustedY - otherShot.location.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-
-      if (distance < COLLISION_THRESHOLD) {
-        const angle = Math.atan2(dy, dx);
-        const offsetDistance = COLLISION_THRESHOLD * 1.2;
-        adjustedX = otherShot.location.x + Math.cos(angle) * offsetDistance;
-        adjustedY = otherShot.location.y + Math.sin(angle) * offsetDistance;
-      }
-    }
-
-    adjustedX = Math.max(0.05, Math.min(0.95, adjustedX));
-    adjustedY = Math.max(0.05, Math.min(0.95, adjustedY));
-
-    return {
+  const adjustedShots = useMemo(() => {
+    const shotsWithDefaults = filteredShots.map((shot) => ({
       ...shot,
-      location: { x: adjustedX, y: adjustedY },
-    };
-  });
+      location: shot.location || { x: 0.5, y: 0.5 },
+    }));
+
+    const result: typeof shotsWithDefaults = [];
+    const COLLISION_THRESHOLD = 0.06;
+
+    shotsWithDefaults.forEach((shot, index) => {
+      let adjustedX = shot.location.x;
+      let adjustedY = shot.location.y;
+
+      for (const prev of result) {
+        const dx = adjustedX - prev.location.x;
+        const dy = adjustedY - prev.location.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < COLLISION_THRESHOLD) {
+          const angle = index * 1.3 + Math.atan2(dy || 0.01, dx || 0.01);
+          adjustedX = prev.location.x + Math.cos(angle) * COLLISION_THRESHOLD * 1.5;
+          adjustedY = prev.location.y + Math.sin(angle) * COLLISION_THRESHOLD * 1.5;
+        }
+      }
+
+      adjustedX = Math.max(0.05, Math.min(0.95, adjustedX));
+      adjustedY = Math.max(0.05, Math.min(0.95, adjustedY));
+
+      result.push({ ...shot, location: { x: adjustedX, y: adjustedY } });
+    });
+
+    return result;
+  }, [filteredShots]);
 
   const togglePlayerFilter = (playerId: string) => {
     const newSelected = new Set(selectedPlayers);
@@ -240,6 +237,7 @@ const styles = StyleSheet.create({
     borderColor: '#FF3B30',
     position: 'relative' as const,
     alignSelf: 'center',
+    overflow: 'hidden',
   },
   shotMarker: {
     position: 'absolute' as const,
@@ -293,15 +291,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1c1c1e',
     fontWeight: '500' as const,
-  },
-  emptyContainer: {
-    padding: 32,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 15,
-    color: '#8e8e93',
-    textAlign: 'center' as const,
   },
   filterSection: {
     marginBottom: 16,

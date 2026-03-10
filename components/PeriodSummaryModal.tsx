@@ -1,5 +1,5 @@
-import { Match, Player, Shot } from '@/types/hockey';
-import { X, Target, Trophy, Users, Clock, Shield, Flame } from 'lucide-react-native';
+import { Match, Player, GameState } from '@/types/hockey';
+import { X, Target, Trophy, Users } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import {
   View,
@@ -17,10 +17,14 @@ interface PeriodSummaryModalProps {
   players: Player[];
   onClose: () => void;
   onNextPeriod: () => void;
+  onEndAsDraw?: () => void;
+  onStartOvertime?: () => void;
+  onStartShootout?: () => void;
+  onContinueOvertime?: () => void;
 }
 
 const { width } = Dimensions.get('window');
-const NET_WIDTH = width - 64; // Slightly smaller than shot modal for padding
+const NET_WIDTH = width - 64;
 const NET_HEIGHT = NET_WIDTH * 0.6;
 
 export function PeriodSummaryModal({
@@ -29,80 +33,81 @@ export function PeriodSummaryModal({
   players,
   onClose,
   onNextPeriod,
+  onEndAsDraw,
+  onStartOvertime,
+  onStartShootout,
+  onContinueOvertime,
 }: PeriodSummaryModalProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'shots' | 'players'>('overview');
   const [showFullMatch, setShowFullMatch] = useState(false);
+  const [situationFilter, setSituationFilter] = useState<'all' | GameState>('all');
 
-  // Calculate stats for current period or full match
   const stats = useMemo(() => {
     if (!match) return null;
 
-    const isMatchOver = match.currentPeriod >= 3;
-    const filterPeriod = (showFullMatch && isMatchOver) ? null : match.currentPeriod;
+    const currentPeriod = match.currentPeriod || 1;
+    const isMatchOver = currentPeriod >= 3;
+    const filterPeriod = (showFullMatch && isMatchOver) ? null : currentPeriod;
 
-    const goalsToCount = filterPeriod ? match.goals.filter(g => g.period === filterPeriod) : match.goals;
-    const shotsToCount = filterPeriod ? match.shots.filter(s => s.period === filterPeriod) : match.shots;
-    const faceoffsToCount = filterPeriod ? match.faceoffs.filter(f => f.period === filterPeriod) : match.faceoffs;
-    const penaltiesToCount = filterPeriod ? match.penalties.filter(p => p.period === filterPeriod) : match.penalties;
-    const possessionsToCount = filterPeriod ? match.possessions.filter(p => p.period === filterPeriod) : match.possessions;
+    const goalsToCount = (filterPeriod ? match.goals.filter(g => g.period === filterPeriod) : match.goals)
+      .filter(g => situationFilter === 'all' || g.gameState === situationFilter);
+    const shotsToCount = (filterPeriod ? match.shots.filter(s => s.period === filterPeriod) : match.shots)
+      .filter(s => situationFilter === 'all' || s.gameState === situationFilter);
+    const faceoffsToCount = (filterPeriod ? match.faceoffs.filter(f => f.period === filterPeriod) : match.faceoffs)
+      .filter(f => situationFilter === 'all' || f.gameState === situationFilter);
+    const penaltiesToCount = (filterPeriod ? match.penalties.filter(p => p.period === filterPeriod) : match.penalties)
+      .filter(p => situationFilter === 'all' || p.gameState === situationFilter);
+    const possessionsToCount = (filterPeriod ? match.possessions.filter(p => p.period === filterPeriod) : match.possessions)
+      .filter(p => situationFilter === 'all' || p.gameState === situationFilter);
 
     const ourGoals = goalsToCount.filter((g) => g.isOurTeam).length;
     const opponentGoals = goalsToCount.filter((g) => !g.isOurTeam).length;
-    
     const ourShots = shotsToCount.filter((s) => s.isOurTeam).length;
     const opponentShots = shotsToCount.filter((s) => !s.isOurTeam).length;
 
-    // Faceoffs
     let ourFaceoffWins = 0;
     let ourFaceoffLosses = 0;
     faceoffsToCount.forEach((f) => {
       const winnerIsUs = match.roster.some((r) => r.playerId === f.winnerId);
-      if (winnerIsUs) {
-        ourFaceoffWins++;
-      } else {
+      if (winnerIsUs) ourFaceoffWins++;
+      else {
         const loserIsUs = match.roster.some((r) => r.playerId === f.loserId);
-        if (loserIsUs) {
-          ourFaceoffLosses++;
-        }
+        if (loserIsUs) ourFaceoffLosses++;
       }
     });
     const totalFaceoffs = ourFaceoffWins + ourFaceoffLosses;
     const ourFaceoffWinRate = totalFaceoffs > 0 ? (ourFaceoffWins / totalFaceoffs) * 100 : 0;
     const opponentFaceoffWinRate = totalFaceoffs > 0 ? (ourFaceoffLosses / totalFaceoffs) * 100 : 0;
 
-    // PIMs
     let ourPIM = 0;
     penaltiesToCount.forEach((p) => {
       const isUs = match.roster.some((r) => r.playerId === p.playerId);
-      if (isUs) {
-        ourPIM += p.minutes;
-      }
+      if (isUs) ourPIM += p.minutes;
     });
-    
-    // Top Players
+
     const playerRatings = match.roster
-        .filter(r => {
-            const p = players.find(pl => pl.id === r.playerId);
-            return p && p.position !== 'goalie';
-        })
-        .map(r => {
+      .filter(r => {
+        const p = players.find(pl => pl.id === r.playerId);
+        return p && p.position !== 'goalie';
+      })
+      .map(r => {
         const pid = r.playerId;
         const pGoals = goalsToCount.filter(g => g.scorerId === pid).length;
         const pAssists = goalsToCount.filter(g => g.assists.includes(pid)).length;
         let pPlusMinus = 0;
         goalsToCount.forEach(g => {
-            if (g.isOurTeam && g.plusPlayers.includes(pid)) pPlusMinus++;
-            if (!g.isOurTeam && g.minusPlayers.includes(pid)) pPlusMinus--;
+          if (g.isOurTeam && g.plusPlayers.includes(pid)) pPlusMinus++;
+          if (!g.isOurTeam && g.minusPlayers.includes(pid)) pPlusMinus--;
         });
         const pShots = shotsToCount.filter(s => s.playerId === pid && s.isOurTeam).length;
-        
-        let pPossGain = 0; 
+
+        let pPossGain = 0;
         let pPossLoss = 0;
         possessionsToCount.forEach(poss => {
-            if (poss.playerId === pid) {
-                if (poss.type === 'gain') pPossGain++;
-                else pPossLoss++;
-            }
+          if (poss.playerId === pid) {
+            if (poss.type === 'gain') pPossGain++;
+            else pPossLoss++;
+          }
         });
 
         let pPIM = 0;
@@ -111,13 +116,13 @@ export function PeriodSummaryModal({
         let pFW = 0;
         let pFL = 0;
         faceoffsToCount.forEach(f => {
-            if (f.winnerId === pid) pFW++;
-            if (f.loserId === pid) pFL++;
+          if (f.winnerId === pid) pFW++;
+          if (f.loserId === pid) pFL++;
         });
 
         const points = pGoals + pAssists;
         const shotPct = pShots > 0 ? (pGoals / pShots) * 100 : 0;
-        
+
         const offRating = (pGoals * 2 + pAssists * 1.5) / Math.max(1, points) * 2;
         const effRating = shotPct / 10;
         const pmRating = Math.max(0, Math.min(10, 5 + pPlusMinus * 0.5));
@@ -130,16 +135,16 @@ export function PeriodSummaryModal({
         const rating = (offRating * 0.3 + effRating * 0.2 + pmRating * 0.2 + possRating * 0.1 + discRating * 0.1 + faceoffRating * 0.1);
 
         return {
-            playerId: pid,
-            name: players.find(pl => pl.id === pid)?.name || 'Unknown',
-            jersey: players.find(pl => pl.id === pid)?.jerseyNumber || 0,
-            position: players.find(pl => pl.id === pid)?.position || '?',
-            rating: Math.max(0, Math.min(10, rating)),
-            goals: pGoals,
-            assists: pAssists,
-            plusMinus: pPlusMinus
+          playerId: pid,
+          name: players.find(pl => pl.id === pid)?.name || 'Unknown',
+          jersey: players.find(pl => pl.id === pid)?.jerseyNumber || 0,
+          position: players.find(pl => pl.id === pid)?.position || '?',
+          rating: Math.max(0, Math.min(10, rating)),
+          goals: pGoals,
+          assists: pAssists,
+          plusMinus: pPlusMinus,
         };
-    }).sort((a, b) => b.rating - a.rating).slice(0, 3);
+      }).sort((a, b) => b.rating - a.rating).slice(0, 3);
 
     return {
       ourGoals,
@@ -149,51 +154,78 @@ export function PeriodSummaryModal({
       ourFaceoffWinRate,
       opponentFaceoffWinRate,
       ourPIM,
-      playerRatings
+      playerRatings,
     };
-  }, [match, players, showFullMatch]);
+  }, [match, players, showFullMatch, situationFilter]);
 
   if (!match || !stats) return null;
 
-  const isMatchOver = match.currentPeriod >= 3;
-  const filterPeriod = (showFullMatch && isMatchOver) ? null : match.currentPeriod;
-  const shotsToDisplay = filterPeriod ? match.shots.filter(s => s.period === filterPeriod) : match.shots;
-  
-  console.log('=== Period Summary Shot Debug ===');
-  console.log('Total shots in match:', match.shots.length);
-  console.log('Filter period:', filterPeriod);
-  console.log('Shots to display:', shotsToDisplay.length);
-  console.log('All match shots:', match.shots.map(s => ({
-    id: s.id,
-    period: s.period,
-    result: s.result,
-    isOurTeam: s.isOurTeam,
-    onGoal: s.onGoal,
-    playerId: s.playerId
-  })));
-  console.log('Our team shots with onGoal:', shotsToDisplay.filter(s => s.isOurTeam && s.onGoal).length);
-  console.log('Goal shots:', shotsToDisplay.filter(s => s.result === 'goal').length);
-  console.log('=================================');
+  const currentPeriod = match.currentPeriod || 1;
+  const isDraw = match.ourScore === match.opponentScore;
+  const isRegulationEnd = currentPeriod >= 3;
+  const isOvertimePeriod = match.isOvertime === true;
+  const showDrawOptions = isRegulationEnd && isDraw && !isOvertimePeriod;
+  const showOTDrawOptions = isOvertimePeriod && isDraw;
+  const isMatchOver = isRegulationEnd && !isDraw;
+
+  const filterPeriod = (showFullMatch && isRegulationEnd) ? null : currentPeriod;
+  const shotsToDisplay = (filterPeriod ? match.shots.filter(s => s.period === filterPeriod) : match.shots)
+    .filter(s => situationFilter === 'all' || s.gameState === situationFilter);
+
+  const adjustedDisplayShots = useMemo(() => {
+    const onGoalShots = shotsToDisplay.filter(s => s.isOurTeam && s.onGoal);
+    const withDefaults = onGoalShots.map((shot) => ({
+      ...shot,
+      location: shot.location || { x: 0.5, y: 0.5 },
+    }));
+
+    const result: typeof withDefaults = [];
+    const COLLISION_THRESHOLD = 0.06;
+
+    withDefaults.forEach((shot, index) => {
+      let adjustedX = shot.location.x;
+      let adjustedY = shot.location.y;
+
+      for (const prev of result) {
+        const dx = adjustedX - prev.location.x;
+        const dy = adjustedY - prev.location.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < COLLISION_THRESHOLD) {
+          const angle = index * 1.3 + Math.atan2(dy || 0.01, dx || 0.01);
+          adjustedX = prev.location.x + Math.cos(angle) * COLLISION_THRESHOLD * 1.5;
+          adjustedY = prev.location.y + Math.sin(angle) * COLLISION_THRESHOLD * 1.5;
+        }
+      }
+
+      adjustedX = Math.max(0.05, Math.min(0.95, adjustedX));
+      adjustedY = Math.max(0.05, Math.min(0.95, adjustedY));
+
+      result.push({ ...shot, location: { x: adjustedX, y: adjustedY } });
+    });
+
+    return result;
+  }, [shotsToDisplay]);
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <View style={styles.container}>
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
-             <Text style={styles.headerTitle}>
-               {isMatchOver ? (showFullMatch ? 'Full Match Stats' : `Period ${match.currentPeriod} Summary`) : `End of Period ${match.currentPeriod}`}
-             </Text>
-             <Text style={styles.headerSubtitle}>
-               {match.ourScore} - {match.opponentScore}
-             </Text>
+            <Text style={styles.headerTitle}>
+              {isMatchOver ? (showFullMatch ? 'Full Match Stats' : `Period ${currentPeriod} Summary`) : `End of Period ${currentPeriod}`}
+            </Text>
+            <Text style={styles.headerSubtitle}>
+              {match.ourScore} - {match.opponentScore}
+            </Text>
           </View>
-          {isMatchOver ? (
-            <TouchableOpacity 
-              style={styles.toggleButton} 
+          {isRegulationEnd ? (
+            <TouchableOpacity
+              style={styles.toggleButton}
               onPress={() => setShowFullMatch(!showFullMatch)}
             >
               <Text style={styles.toggleButtonText}>
-                {showFullMatch ? `P${match.currentPeriod}` : 'Full'}
+                {showFullMatch ? `P${currentPeriod}` : 'Full'}
               </Text>
             </TouchableOpacity>
           ) : null}
@@ -203,27 +235,41 @@ export function PeriodSummaryModal({
         </View>
 
         <View style={styles.tabBar}>
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'overview' && styles.activeTab]} 
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'overview' && styles.activeTab]}
             onPress={() => setActiveTab('overview')}
           >
             <Trophy size={20} color={activeTab === 'overview' ? '#007AFF' : '#8e8e93'} />
             <Text style={[styles.tabText, activeTab === 'overview' && styles.activeTabText]}>Stats</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'shots' && styles.activeTab]} 
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'shots' && styles.activeTab]}
             onPress={() => setActiveTab('shots')}
           >
             <Target size={20} color={activeTab === 'shots' ? '#007AFF' : '#8e8e93'} />
             <Text style={[styles.tabText, activeTab === 'shots' && styles.activeTabText]}>Shot Map</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'players' && styles.activeTab]} 
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'players' && styles.activeTab]}
             onPress={() => setActiveTab('players')}
           >
             <Users size={20} color={activeTab === 'players' ? '#007AFF' : '#8e8e93'} />
             <Text style={[styles.tabText, activeTab === 'players' && styles.activeTabText]}>Top Players</Text>
           </TouchableOpacity>
+        </View>
+
+        <View style={styles.situationFilter}>
+          {(['all', 'even', 'pp', 'sh'] as const).map((s) => (
+            <TouchableOpacity
+              key={s}
+              style={[styles.situationBtn, situationFilter === s && styles.situationBtnActive]}
+              onPress={() => setSituationFilter(s)}
+            >
+              <Text style={[styles.situationBtnText, situationFilter === s && styles.situationBtnTextActive]}>
+                {s === 'all' ? 'All' : s.toUpperCase()}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
@@ -240,7 +286,6 @@ export function PeriodSummaryModal({
                   <Text style={styles.statLabel}>Goals</Text>
                 </View>
               </View>
-
               <View style={styles.statRow}>
                 <View style={styles.statBox}>
                   <Text style={styles.statValue}>{stats.ourShots}</Text>
@@ -252,7 +297,6 @@ export function PeriodSummaryModal({
                   <Text style={styles.statLabel}>Shots</Text>
                 </View>
               </View>
-
               <View style={styles.statRow}>
                 <View style={styles.statBox}>
                   <Text style={styles.statValue}>{stats.ourFaceoffWinRate.toFixed(0)}%</Text>
@@ -264,7 +308,6 @@ export function PeriodSummaryModal({
                   <Text style={styles.statLabel}>Faceoffs</Text>
                 </View>
               </View>
-
               <View style={styles.statRow}>
                 <View style={styles.statBox}>
                   <Text style={styles.statValue}>{stats.ourPIM}</Text>
@@ -281,106 +324,129 @@ export function PeriodSummaryModal({
 
           {activeTab === 'shots' ? (
             <View style={styles.shotMapContainer}>
-               <Text style={styles.sectionTitle}>Shots on Target</Text>
-               <View style={styles.legend}>
-                  <View style={styles.legendItem}>
-                     <View style={[styles.legendDot, { backgroundColor: '#FFD700' }]} />
-                     <Text style={styles.legendText}>Goal (Gold)</Text>
-                  </View>
-                  <View style={styles.legendItem}>
-                     <View style={[styles.legendDot, { backgroundColor: '#007AFF' }]} />
-                     <Text style={styles.legendText}>Save (Blue)</Text>
-                  </View>
-               </View>
-               <View style={styles.net}>
-                  {shotsToDisplay.filter(s => s.isOurTeam && s.onGoal).map((shot, index) => {
-                     const isGoal = shot.result === 'goal';
-                     const player = shot.playerId ? players.find(p => p.id === shot.playerId) : null;
-                     const location = shot.location || { x: 0.5, y: 0.5 };
-                     
-                     console.log(`Shot ${shot.id}: result=${shot.result}, isGoal=${isGoal}, player=${player?.jerseyNumber}, location=${JSON.stringify(location)}`);
-                     
-                     return (
-                        <View
-                           key={shot.id}
-                           style={[
-                              styles.shotMarker,
-                              {
-                                 left: (location.x * NET_WIDTH) - 16,
-                                 top: (location.y * NET_HEIGHT) - 16,
-                              }
-                           ]}
-                        >
-                           <View style={[
-                              styles.shotCircle,
-                              { 
-                                backgroundColor: isGoal ? '#FFD700' : '#007AFF', 
-                                borderColor: isGoal ? '#FFA500' : '#0051D5',
-                                borderWidth: 2
-                              }
-                           ]}>
-                              {player && (
-                                 <Text style={[styles.shotPlayerNumber, { color: isGoal ? '#000' : '#fff' }]}>
-                                    {player.jerseyNumber}
-                                 </Text>
-                              )}
-                              {!player && (
-                                 <Target
-                                    color={isGoal ? '#000' : '#fff'}
-                                    size={16}
-                                 />
-                              )}
-                           </View>
-                        </View>
-                     );
-                  })}
-               </View>
-               <Text style={styles.hintText}>
-                 {filterPeriod ? `Period ${filterPeriod} shots on target` : 'All shots on target from our team'}
-               </Text>
+              <Text style={styles.sectionTitle}>Shots on Target</Text>
+              <View style={styles.legend}>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: '#FFD700' }]} />
+                  <Text style={styles.legendText}>Goal</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: '#007AFF' }]} />
+                  <Text style={styles.legendText}>Save</Text>
+                </View>
+              </View>
+              <View style={styles.net}>
+                {adjustedDisplayShots.map((shot) => {
+                  const isGoal = shot.result === 'goal';
+                  const player = shot.playerId ? players.find(p => p.id === shot.playerId) : null;
+
+                  return (
+                    <View
+                      key={shot.id}
+                      style={[
+                        styles.shotMarker,
+                        {
+                          left: (shot.location.x * NET_WIDTH) - 16,
+                          top: (shot.location.y * NET_HEIGHT) - 16,
+                        },
+                      ]}
+                    >
+                      <View style={[
+                        styles.shotCircle,
+                        {
+                          backgroundColor: isGoal ? '#FFD700' : '#007AFF',
+                          borderColor: isGoal ? '#FFA500' : '#0051D5',
+                          borderWidth: 2,
+                        },
+                      ]}>
+                        {player && (
+                          <Text style={[styles.shotPlayerNumber, { color: isGoal ? '#000' : '#fff' }]}>
+                            {player.jerseyNumber}
+                          </Text>
+                        )}
+                        {!player && (
+                          <Target color={isGoal ? '#000' : '#fff'} size={16} />
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+              <Text style={styles.hintText}>
+                {filterPeriod ? `Period ${filterPeriod} shots on target` : 'All shots on target'}
+                {situationFilter !== 'all' ? ` (${situationFilter.toUpperCase()})` : ''}
+              </Text>
             </View>
           ) : null}
 
           {activeTab === 'players' ? (
             <View style={styles.playersContainer}>
-               <Text style={styles.sectionTitle}>Top 3 Performers</Text>
-               {stats.playerRatings.map((p, index) => (
-                  <View key={p.playerId} style={styles.playerCard}>
-                     <View style={styles.rankBadge}>
-                        <Text style={styles.rankText}>{index + 1}</Text>
-                     </View>
-                     <View style={styles.playerInfo}>
-                        <Text style={styles.playerName}>#{p.jersey} {p.name}</Text>
-                        <Text style={styles.playerStats}>
-                           {p.goals}G {p.assists}A ({p.plusMinus > 0 ? '+' : ''}{p.plusMinus})
-                        </Text>
-                     </View>
-                     <View style={styles.ratingBadge}>
-                        <Text style={styles.ratingText}>{p.rating.toFixed(1)}</Text>
-                     </View>
+              <Text style={styles.sectionTitle}>Top 3 Performers</Text>
+              {stats.playerRatings.map((p, index) => (
+                <View key={p.playerId} style={styles.playerCard}>
+                  <View style={styles.rankBadge}>
+                    <Text style={styles.rankText}>{index + 1}</Text>
                   </View>
-               ))}
-               {stats.playerRatings.length === 0 ? (
-                  <Text style={styles.emptyText}>Not enough data yet</Text>
-               ) : null}
+                  <View style={styles.playerInfo}>
+                    <Text style={styles.playerName}>#{p.jersey} {p.name}</Text>
+                    <Text style={styles.playerStats}>
+                      {p.goals}G {p.assists}A ({p.plusMinus > 0 ? '+' : ''}{p.plusMinus})
+                    </Text>
+                  </View>
+                  <View style={styles.ratingBadge}>
+                    <Text style={styles.ratingText}>{p.rating.toFixed(1)}</Text>
+                  </View>
+                </View>
+              ))}
+              {stats.playerRatings.length === 0 ? (
+                <Text style={styles.emptyText}>Not enough data yet</Text>
+              ) : null}
             </View>
           ) : null}
         </ScrollView>
 
         <View style={styles.footer}>
-          {isMatchOver && !showFullMatch ? (
-            <TouchableOpacity 
-              style={styles.viewFullButton} 
-              onPress={() => setShowFullMatch(true)}
-            >
-              <Text style={styles.viewFullButtonText}>View Full Match Stats</Text>
-            </TouchableOpacity>
-          ) : null}
-          <TouchableOpacity style={styles.nextButton} onPress={onNextPeriod}>
-             <Text style={styles.nextButtonText}>
-                {isMatchOver ? 'End Match' : 'Start Next Period'}
-             </Text>
-          </TouchableOpacity>
+          {showDrawOptions && (
+            <>
+              <Text style={styles.drawNotice}>Match is tied after regulation</Text>
+              <TouchableOpacity style={styles.otButton} onPress={onStartOvertime}>
+                <Text style={styles.otButtonText}>Start Overtime</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.drawButton} onPress={onEndAsDraw}>
+                <Text style={styles.drawButtonText}>End as Draw</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {showOTDrawOptions && (
+            <>
+              <Text style={styles.drawNotice}>Overtime ended in a draw</Text>
+              <TouchableOpacity style={styles.otButton} onPress={onContinueOvertime}>
+                <Text style={styles.otButtonText}>Continue Overtime</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.shootoutButton} onPress={onStartShootout}>
+                <Text style={styles.shootoutButtonText}>Go to Shootout</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {!showDrawOptions && !showOTDrawOptions && (
+            <>
+              {isRegulationEnd && !showFullMatch ? (
+                <TouchableOpacity
+                  style={styles.viewFullButton}
+                  onPress={() => setShowFullMatch(true)}
+                >
+                  <Text style={styles.viewFullButtonText}>View Full Match Stats</Text>
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity style={styles.nextButton} onPress={onNextPeriod}>
+                <Text style={styles.nextButtonText}>
+                  {isMatchOver ? 'End Match' : 'Start Next Period'}
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
     </Modal>
@@ -405,7 +471,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: '700' as const,
     color: '#1c1c1e',
   },
   headerSubtitle: {
@@ -448,11 +514,37 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '600' as const,
     color: '#8e8e93',
   },
   activeTabText: {
     color: '#007AFF',
+  },
+  situationFilter: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e5ea',
+  },
+  situationBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: '#f2f2f7',
+  },
+  situationBtnActive: {
+    backgroundColor: '#007AFF',
+  },
+  situationBtnText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: '#8e8e93',
+  },
+  situationBtnTextActive: {
+    color: '#fff',
   },
   content: {
     flex: 1,
@@ -482,21 +574,21 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: '700' as const,
     color: '#1c1c1e',
   },
   statLabel: {
     fontSize: 12,
     color: '#8e8e93',
     marginTop: 4,
-    textTransform: 'uppercase',
+    textTransform: 'uppercase' as const,
   },
   shotMapContainer: {
     alignItems: 'center',
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '700' as const,
     color: '#1c1c1e',
     marginBottom: 16,
     alignSelf: 'flex-start',
@@ -527,8 +619,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 3,
     borderColor: '#FF3B30',
-    position: 'relative',
+    position: 'relative' as const,
     marginBottom: 12,
+    overflow: 'hidden',
   },
   shotMarker: {
     position: 'absolute' as const,
@@ -552,7 +645,7 @@ const styles = StyleSheet.create({
   hintText: {
     fontSize: 12,
     color: '#8e8e93',
-    textAlign: 'center',
+    textAlign: 'center' as const,
   },
   playersContainer: {
     gap: 12,
@@ -580,7 +673,7 @@ const styles = StyleSheet.create({
   },
   rankText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '700' as const,
     color: '#8e8e93',
   },
   playerInfo: {
@@ -588,7 +681,7 @@ const styles = StyleSheet.create({
   },
   playerName: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '600' as const,
     color: '#1c1c1e',
   },
   playerStats: {
@@ -604,10 +697,10 @@ const styles = StyleSheet.create({
   ratingText: {
     color: '#fff',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '700' as const,
   },
   emptyText: {
-    textAlign: 'center',
+    textAlign: 'center' as const,
     color: '#8e8e93',
     marginTop: 24,
   },
@@ -616,7 +709,49 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#e5e5ea',
-    gap: 12,
+    gap: 10,
+  },
+  drawNotice: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: '#FF9500',
+    textAlign: 'center' as const,
+    marginBottom: 4,
+  },
+  otButton: {
+    backgroundColor: '#007AFF',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  otButtonText: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '600' as const,
+  },
+  drawButton: {
+    backgroundColor: '#f2f2f7',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#8e8e93',
+  },
+  drawButtonText: {
+    color: '#8e8e93',
+    fontSize: 16,
+    fontWeight: '600' as const,
+  },
+  shootoutButton: {
+    backgroundColor: '#FF9500',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  shootoutButtonText: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '600' as const,
   },
   viewFullButton: {
     backgroundColor: '#f2f2f7',
@@ -640,6 +775,6 @@ const styles = StyleSheet.create({
   nextButtonText: {
     color: '#fff',
     fontSize: 17,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
 });
