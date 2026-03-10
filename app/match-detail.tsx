@@ -1,14 +1,19 @@
 import { useHockey } from '@/contexts/hockey-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, Target, Users, Crosshair } from 'lucide-react-native';
-import React, { useMemo } from 'react';
+import { ChevronLeft, Target, Users, Crosshair, Share2 } from 'lucide-react-native';
+import React, { useMemo, useCallback, useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import { generateMatchStatsHTML } from '@/utils/matchPdfGenerator';
 import { getRatingColor } from '@/constants/ratingColors';
 import { ShotDiagram } from '@/components/ShotDiagram';
 
@@ -132,6 +137,42 @@ export default function MatchDetailScreen() {
     };
   }, [match]);
 
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  const handleSharePdf = useCallback(async () => {
+    if (!match) return;
+    setIsGeneratingPdf(true);
+    try {
+      console.log('Generating match stats PDF...');
+      const html = generateMatchStatsHTML(match, players);
+      const { uri } = await Print.printToFileAsync({
+        html,
+        base64: false,
+      });
+      console.log('PDF generated at:', uri);
+
+      if (Platform.OS === 'web') {
+        await Print.printAsync({ html });
+      } else {
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (isAvailable) {
+          await Sharing.shareAsync(uri, {
+            mimeType: 'application/pdf',
+            dialogTitle: `Match Stats vs ${match.opponentName}`,
+            UTI: 'com.adobe.pdf',
+          });
+        } else {
+          console.warn('Sharing is not available on this device');
+          await Print.printAsync({ html });
+        }
+      }
+    } catch (error) {
+      console.error('Error generating/sharing PDF:', error);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  }, [match, players]);
+
   if (!match) {
     return (
       <View style={styles.container}>
@@ -175,6 +216,20 @@ export default function MatchDetailScreen() {
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.push('/')} style={styles.backButton}>
               <ChevronLeft color="#007AFF" size={28} />
+            </TouchableOpacity>
+          ),
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={handleSharePdf}
+              style={styles.shareButton}
+              disabled={isGeneratingPdf}
+              testID="share-pdf-button"
+            >
+              {isGeneratingPdf ? (
+                <ActivityIndicator size="small" color="#007AFF" />
+              ) : (
+                <Share2 color="#007AFF" size={22} />
+              )}
             </TouchableOpacity>
           ),
         }}
@@ -411,6 +466,10 @@ const styles = StyleSheet.create({
   },
   backButton: {
     paddingHorizontal: 8,
+  },
+  shareButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   content: {
     padding: 16,
