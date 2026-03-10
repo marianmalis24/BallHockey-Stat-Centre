@@ -1,5 +1,5 @@
 import { useHockey } from '@/contexts/hockey-context';
-import { X, Check, Minus } from 'lucide-react-native';
+import { X, Check, Minus, ArrowLeftRight } from 'lucide-react-native';
 import React, { useState, useMemo } from 'react';
 import {
   View,
@@ -17,13 +17,14 @@ interface ShootoutModalProps {
   onComplete: () => void;
 }
 
-type Phase = 'setup' | 'play';
+type Phase = 'setup' | 'play' | 'reverse_prompt';
 
 export function ShootoutModal({ visible, onClose, onComplete }: ShootoutModalProps) {
   const { players, activeMatch, updateShootout } = useHockey();
   const [phase, setPhase] = useState<Phase>('setup');
   const [totalRounds, setTotalRounds] = useState(3);
   const [startingTeam, setStartingTeam] = useState<'us' | 'them'>('us');
+  const [currentStartingTeam, setCurrentStartingTeam] = useState<'us' | 'them'>('us');
   const [attempts, setAttempts] = useState<ShootoutAttempt[]>([]);
   const [ourScore, setOurScore] = useState(0);
   const [oppScore, setOppScore] = useState(0);
@@ -31,6 +32,7 @@ export function ShootoutModal({ visible, onClose, onComplete }: ShootoutModalPro
   const [currentRound, setCurrentRound] = useState(1);
   const [currentTeamIsUs, setCurrentTeamIsUs] = useState(true);
   const [isFinished, setIsFinished] = useState(false);
+  const [hasAskedReverse, setHasAskedReverse] = useState(false);
 
   const rosterPlayers = useMemo(() => {
     if (!activeMatch) return [];
@@ -45,6 +47,7 @@ export function ShootoutModal({ visible, onClose, onComplete }: ShootoutModalPro
     setPhase('setup');
     setTotalRounds(3);
     setStartingTeam('us');
+    setCurrentStartingTeam('us');
     setAttempts([]);
     setOurScore(0);
     setOppScore(0);
@@ -52,10 +55,12 @@ export function ShootoutModal({ visible, onClose, onComplete }: ShootoutModalPro
     setCurrentRound(1);
     setCurrentTeamIsUs(true);
     setIsFinished(false);
+    setHasAskedReverse(false);
   };
 
   const handleStart = () => {
     setPhase('play');
+    setCurrentStartingTeam(startingTeam);
     setCurrentTeamIsUs(startingTeam === 'us');
     setCurrentRound(1);
   };
@@ -92,11 +97,17 @@ export function ShootoutModal({ visible, onClose, onComplete }: ShootoutModalPro
       const bothDone = newAttempts.filter((a) => a.round === currentRound).length >= 2;
       if (bothDone) {
         if (currentRound >= totalRounds && newOurScore === newOppScore) {
-          setCurrentRound(currentRound + 1);
-          setCurrentTeamIsUs(startingTeam === 'us');
+          if (!hasAskedReverse) {
+            setHasAskedReverse(true);
+            setPhase('reverse_prompt');
+          } else {
+            const nextRound = currentRound + 1;
+            setCurrentRound(nextRound);
+            setCurrentTeamIsUs(currentStartingTeam === 'us');
+          }
         } else if (currentRound < totalRounds) {
           setCurrentRound(currentRound + 1);
-          setCurrentTeamIsUs(startingTeam === 'us');
+          setCurrentTeamIsUs(currentStartingTeam === 'us');
         } else {
           setIsFinished(true);
         }
@@ -104,6 +115,17 @@ export function ShootoutModal({ visible, onClose, onComplete }: ShootoutModalPro
         setCurrentTeamIsUs(true);
       }
     }
+  };
+
+  const handleReverseChoice = (reverse: boolean) => {
+    const newStarting = reverse
+      ? (currentStartingTeam === 'us' ? 'them' : 'us') as 'us' | 'them'
+      : currentStartingTeam;
+    setCurrentStartingTeam(newStarting);
+    const nextRound = currentRound + 1;
+    setCurrentRound(nextRound);
+    setCurrentTeamIsUs(newStarting === 'us');
+    setPhase('play');
   };
 
   const handleOurAttempt = (playerId: string, result: 'goal' | 'no_goal') => {
@@ -206,6 +228,36 @@ export function ShootoutModal({ visible, onClose, onComplete }: ShootoutModalPro
           </View>
         )}
 
+        {phase === 'reverse_prompt' && (
+          <View style={styles.reverseContent}>
+            <View style={styles.reverseCard}>
+              <View style={styles.reverseIconCircle}>
+                <ArrowLeftRight color="#007AFF" size={32} />
+              </View>
+              <Text style={styles.reverseTitle}>Reverse Shooting Order?</Text>
+              <Text style={styles.reverseSubtitle}>
+                After {totalRounds} rounds it's {ourScore} - {oppScore}. Sudden death begins.
+              </Text>
+              <Text style={styles.reverseCurrentOrder}>
+                Current order: {currentStartingTeam === 'us' ? 'Us first' : 'Them first'}
+              </Text>
+              <TouchableOpacity
+                style={styles.reverseYesBtn}
+                onPress={() => handleReverseChoice(true)}
+              >
+                <ArrowLeftRight color="#fff" size={18} />
+                <Text style={styles.reverseBtnText}>Yes, Reverse Order</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.reverseNoBtn}
+                onPress={() => handleReverseChoice(false)}
+              >
+                <Text style={styles.reverseNoBtnText}>Keep Same Order</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {phase === 'play' && (
           <ScrollView style={styles.playContent} contentContainerStyle={styles.playScrollContent}>
             <View style={styles.shootoutScore}>
@@ -234,7 +286,7 @@ export function ShootoutModal({ visible, onClose, onComplete }: ShootoutModalPro
                     : null;
 
                   return (
-                    <View key={round} style={styles.attemptRow}>
+                    <View key={round} style={[styles.attemptRow, round === currentRound && styles.attemptRowCurrent]}>
                       <Text style={styles.attemptRound}>R{round}</Text>
                       <View style={styles.attemptResult}>
                         {usAttempt ? (
@@ -453,6 +505,84 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600' as const,
   },
+  reverseContent: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  reverseCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 28,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  reverseIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#EBF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  reverseTitle: {
+    fontSize: 22,
+    fontWeight: '700' as const,
+    color: '#1c1c1e',
+    marginBottom: 8,
+    textAlign: 'center' as const,
+  },
+  reverseSubtitle: {
+    fontSize: 15,
+    color: '#8e8e93',
+    textAlign: 'center' as const,
+    marginBottom: 8,
+    lineHeight: 20,
+  },
+  reverseCurrentOrder: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#3a3a3c',
+    backgroundColor: '#f2f2f7',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  reverseYesBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#007AFF',
+    borderRadius: 12,
+    paddingVertical: 15,
+    width: '100%',
+    marginBottom: 10,
+  },
+  reverseBtnText: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '600' as const,
+  },
+  reverseNoBtn: {
+    backgroundColor: '#f2f2f7',
+    borderRadius: 12,
+    paddingVertical: 15,
+    width: '100%',
+    alignItems: 'center',
+  },
+  reverseNoBtnText: {
+    color: '#3a3a3c',
+    fontSize: 17,
+    fontWeight: '600' as const,
+  },
   playContent: {
     flex: 1,
   },
@@ -507,6 +637,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#f2f2f7',
+  },
+  attemptRowCurrent: {
+    backgroundColor: '#f0f6ff',
+    borderRadius: 8,
+    marginHorizontal: -4,
+    paddingHorizontal: 4,
   },
   attemptRound: {
     fontSize: 14,

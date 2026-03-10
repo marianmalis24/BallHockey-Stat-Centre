@@ -8,7 +8,7 @@ import { FaceoffModal } from '@/components/FaceoffModal';
 import { ShootoutModal } from '@/components/ShootoutModal';
 import { Stack, router } from 'expo-router';
 import { Plus, Target, Users, BarChart3, AlertCircle, RefreshCw, Clock, TrendingUp, Shield, History, Zap, ShieldOff, Circle } from 'lucide-react-native';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import {
   StyleSheet,
   Alert,
   Modal,
+  Animated,
 } from 'react-native';
 import { Player, GameState, ShotRisk } from '@/types/hockey';
 
@@ -47,6 +48,10 @@ export default function GameScreen() {
   const [faceoffType, setFaceoffType] = useState<'win' | 'loss'>('win');
   const [shootoutVisible, setShootoutVisible] = useState(false);
   const [oppShotRiskVisible, setOppShotRiskVisible] = useState(false);
+  const [ppshSummary, setPpshSummary] = useState<{ type: GameState | undefined; ourShots: number; oppShots: number; ourGoals: number; oppGoals: number; foWins: number; foLosses: number } | null>(null);
+  const ppshOpacity = useRef(new Animated.Value(0)).current;
+  const ppshTranslateY = useRef(new Animated.Value(-30)).current;
+  const ppshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleAddGoal = useCallback((type: 'our' | 'opponent') => {
     setGoalType(type);
@@ -77,6 +82,23 @@ export default function GameScreen() {
     setFaceoffModalVisible(true);
   }, []);
 
+  const showPPSHToast = useCallback((summary: { type: GameState | undefined; ourShots: number; oppShots: number; ourGoals: number; oppGoals: number; foWins: number; foLosses: number }) => {
+    if (ppshTimerRef.current) clearTimeout(ppshTimerRef.current);
+    setPpshSummary(summary);
+    ppshOpacity.setValue(0);
+    ppshTranslateY.setValue(-30);
+    Animated.parallel([
+      Animated.timing(ppshOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+      Animated.timing(ppshTranslateY, { toValue: 0, duration: 250, useNativeDriver: true }),
+    ]).start();
+    ppshTimerRef.current = setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(ppshOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+        Animated.timing(ppshTranslateY, { toValue: -30, duration: 300, useNativeDriver: true }),
+      ]).start(() => setPpshSummary(null));
+    }, 3000);
+  }, [ppshOpacity, ppshTranslateY]);
+
   const handleGameStateChange = useCallback((newState: GameState) => {
     if (!activeMatch) return;
 
@@ -86,18 +108,12 @@ export default function GameScreen() {
     if ((currentState === 'pp' || currentState === 'sh') && newState !== currentState) {
       const summary = getPPSHSummary();
       if (summary) {
-        const label = summary.type === 'pp' ? 'Power Play' : 'Short Handed';
-        Alert.alert(
-          `${label} Summary`,
-          `Shots: ${summary.ourShots} for / ${summary.oppShots} against\n` +
-          `Goals: ${summary.ourGoals} for / ${summary.oppGoals} against\n` +
-          `Faceoffs: ${summary.foWins}W / ${summary.foLosses}L`
-        );
+        showPPSHToast(summary);
       }
     }
 
     setGameState(newState);
-  }, [activeMatch, setGameState, getPPSHSummary]);
+  }, [activeMatch, setGameState, getPPSHSummary, showPPSHToast]);
 
   const handlePeriodAction = useCallback(() => {
     setPeriodSummaryVisible(true);
@@ -502,6 +518,54 @@ export default function GameScreen() {
         onClose={() => setShootoutVisible(false)}
         onComplete={handleShootoutComplete}
       />
+
+      {ppshSummary && (
+        <Animated.View
+          style={[
+            styles.ppshToast,
+            {
+              opacity: ppshOpacity,
+              transform: [{ translateY: ppshTranslateY }],
+            },
+          ]}
+          pointerEvents="box-none"
+        >
+          <View style={[
+            styles.ppshToastInner,
+            ppshSummary.type === 'pp' ? styles.ppshToastPP : styles.ppshToastSH,
+          ]}>
+            <View style={styles.ppshToastHeader}>
+              {ppshSummary.type === 'pp' ? (
+                <Zap size={18} color="#fff" />
+              ) : (
+                <ShieldOff size={18} color="#fff" />
+              )}
+              <Text style={styles.ppshToastTitle}>
+                {ppshSummary.type === 'pp' ? 'Power Play' : 'Shorthanded'} Over
+              </Text>
+            </View>
+            <View style={styles.ppshToastStats}>
+              <View style={styles.ppshStatBlock}>
+                <Text style={styles.ppshStatValue}>{ppshSummary.ourGoals}-{ppshSummary.oppGoals}</Text>
+                <Text style={styles.ppshStatLabel}>Goals</Text>
+              </View>
+              <View style={styles.ppshStatDivider} />
+              <View style={styles.ppshStatBlock}>
+                <Text style={styles.ppshStatValue}>{ppshSummary.ourShots}-{ppshSummary.oppShots}</Text>
+                <Text style={styles.ppshStatLabel}>Shots</Text>
+              </View>
+              <View style={styles.ppshStatDivider} />
+              <View style={styles.ppshStatBlock}>
+                <Text style={styles.ppshStatValue}>{ppshSummary.foWins}-{ppshSummary.foLosses}</Text>
+                <Text style={styles.ppshStatLabel}>Faceoffs</Text>
+              </View>
+            </View>
+            <View style={styles.ppshToastProgressBar}>
+              <Animated.View style={[styles.ppshProgressFill, ppshSummary.type === 'pp' ? styles.ppshProgressPP : styles.ppshProgressSH]} />
+            </View>
+          </View>
+        </Animated.View>
+      )}
 
       <Modal visible={oppShotRiskVisible} animationType="fade" transparent>
         <View style={styles.riskOverlay}>
@@ -927,5 +991,87 @@ const styles = StyleSheet.create({
     color: '#8e8e93',
     fontSize: 16,
     fontWeight: '500' as const,
+  },
+  ppshToast: {
+    position: 'absolute',
+    top: 110,
+    left: 16,
+    right: 16,
+    zIndex: 999,
+  },
+  ppshToastInner: {
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  ppshToastPP: {
+    backgroundColor: '#1a1a2e',
+    borderWidth: 1,
+    borderColor: 'rgba(255,149,0,0.4)',
+  },
+  ppshToastSH: {
+    backgroundColor: '#1a1a2e',
+    borderWidth: 1,
+    borderColor: 'rgba(255,59,48,0.4)',
+  },
+  ppshToastHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  ppshToastTitle: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: '#fff',
+  },
+  ppshToastStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    marginBottom: 12,
+  },
+  ppshStatBlock: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  ppshStatValue: {
+    fontSize: 22,
+    fontWeight: '700' as const,
+    color: '#fff',
+    marginBottom: 2,
+  },
+  ppshStatLabel: {
+    fontSize: 11,
+    fontWeight: '500' as const,
+    color: '#8e8e93',
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.5,
+  },
+  ppshStatDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: 'rgba(142,142,147,0.3)',
+  },
+  ppshToastProgressBar: {
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    overflow: 'hidden',
+  },
+  ppshProgressFill: {
+    height: '100%',
+    width: '100%',
+    borderRadius: 2,
+  },
+  ppshProgressPP: {
+    backgroundColor: '#FF9500',
+  },
+  ppshProgressSH: {
+    backgroundColor: '#FF3B30',
   },
 });
