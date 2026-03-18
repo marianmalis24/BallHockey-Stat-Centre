@@ -7,7 +7,7 @@ import { MatchStatsModal } from '@/components/MatchStatsModal';
 import { FaceoffModal } from '@/components/FaceoffModal';
 import { ShootoutModal } from '@/components/ShootoutModal';
 import { Stack, router } from 'expo-router';
-import { Plus, Target, Users, BarChart3, AlertCircle, RefreshCw, Clock, TrendingUp, Shield, History, Zap, ShieldOff, Circle, Undo2, Activity } from 'lucide-react-native';
+import { Plus, Target, Users, BarChart3, AlertCircle, RefreshCw, Clock, TrendingUp, Shield, History, Zap, ShieldOff, Circle, Undo2, Activity, ShieldBan, CircleOff } from 'lucide-react-native';
 import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
@@ -77,6 +77,22 @@ export default function GameScreen() {
       shotRisk: risk,
     });
     setOppShotRiskVisible(false);
+  }, [addShot]);
+
+  const handleShotBlocked = useCallback(() => {
+    addShot({
+      isOurTeam: true,
+      onGoal: false,
+      result: 'blocked',
+    });
+  }, [addShot]);
+
+  const handleShotWide = useCallback(() => {
+    addShot({
+      isOurTeam: true,
+      onGoal: false,
+      result: 'miss',
+    });
   }, [addShot]);
 
   const handleFaceoff = useCallback((type: 'win' | 'loss') => {
@@ -389,32 +405,49 @@ export default function GameScreen() {
               style={[styles.actionCard, styles.goalCard]}
               onPress={() => handleAddGoal('our')}
             >
-              <Plus color="#fff" size={28} />
+              <Plus color="#fff" size={20} />
               <Text style={styles.actionCardTitle}>Our Goal</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionCard, styles.shotCard]}
-              onPress={() => handleAddShot('our')}
-            >
-              <Target color="#fff" size={28} />
-              <Text style={styles.actionCardTitle}>Our Shot</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionCard, styles.goalAgainstCard]}
               onPress={() => handleAddGoal('opponent')}
             >
-              <AlertCircle color="#fff" size={28} />
+              <AlertCircle color="#fff" size={20} />
               <Text style={styles.actionCardTitle}>Goal Against</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.actionGrid}>
+            <TouchableOpacity
+              style={[styles.actionCard, styles.shotCard]}
+              onPress={() => handleAddShot('our')}
+            >
+              <Target color="#fff" size={20} />
+              <Text style={styles.actionCardTitle}>Our Shot</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionCard, styles.shotAgainstCard]}
               onPress={() => handleAddShot('opponent')}
             >
-              <Target color="#fff" size={28} />
+              <Target color="#fff" size={20} />
               <Text style={styles.actionCardTitle}>Shot Against</Text>
             </TouchableOpacity>
           </View>
-
+          <View style={styles.actionGrid}>
+            <TouchableOpacity
+              style={[styles.actionCard, styles.shotBlockedCard]}
+              onPress={handleShotBlocked}
+            >
+              <ShieldBan color="#fff" size={20} />
+              <Text style={styles.actionCardTitle}>Shot Blocked</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionCard, styles.shotWideCard]}
+              onPress={handleShotWide}
+            >
+              <CircleOff color="#fff" size={20} />
+              <Text style={styles.actionCardTitle}>Shot Wide</Text>
+            </TouchableOpacity>
+          </View>
           <View style={styles.faceoffRow}>
             <TouchableOpacity
               style={[styles.faceoffBtn, styles.foWinBtn]}
@@ -761,18 +794,18 @@ const styles = StyleSheet.create({
   },
   actionGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+    gap: 10,
+    marginBottom: 10,
   },
   actionCard: {
     flex: 1,
-    minWidth: '47%',
-    aspectRatio: 1.5,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    flexDirection: 'row',
+    gap: 6,
   },
   goalCard: {
     backgroundColor: '#34C759',
@@ -786,21 +819,26 @@ const styles = StyleSheet.create({
   shotAgainstCard: {
     backgroundColor: '#FF9500',
   },
+  shotBlockedCard: {
+    backgroundColor: '#5856D6',
+  },
+  shotWideCard: {
+    backgroundColor: '#8e8e93',
+  },
   actionCardTitle: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '600' as const,
     color: '#fff',
     textAlign: 'center' as const,
   },
   faceoffRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 12,
+    gap: 10,
   },
   faceoffBtn: {
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: 12,
+    borderRadius: 10,
     alignItems: 'center',
   },
   foWinBtn: {

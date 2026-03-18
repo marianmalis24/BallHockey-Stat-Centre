@@ -1,5 +1,5 @@
 import { useHockey } from '@/contexts/hockey-context';
-import { X, AlertTriangle, ArrowDownCircle, ArrowUpCircle } from 'lucide-react-native';
+import { X, AlertTriangle } from 'lucide-react-native';
 import React from 'react';
 import {
   View,
@@ -18,7 +18,7 @@ interface PlayerActionModalProps {
 }
 
 export function PlayerActionModal({ visible, player, isCenter, onClose }: PlayerActionModalProps) {
-  const { addPenalty, addPossession, addFaceoff } = useHockey();
+  const { addPenalty, addFaceoff } = useHockey();
 
   if (!player) return null;
 
@@ -27,14 +27,6 @@ export function PlayerActionModal({ visible, player, isCenter, onClose }: Player
       playerId: player.id,
       minutes,
       infraction: label,
-    });
-    onClose();
-  };
-
-  const handlePossession = (type: 'gain' | 'loss') => {
-    addPossession({
-      playerId: player.id,
-      type,
     });
     onClose();
   };
@@ -88,24 +80,6 @@ export function PlayerActionModal({ visible, player, isCenter, onClose }: Player
                   </View>
                </>
             )}
-
-            <Text style={styles.sectionTitle}>Possession</Text>
-            <View style={styles.actionRow}>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.gainButton]}
-                onPress={() => handlePossession('gain')}
-              >
-                <ArrowUpCircle color="#fff" size={28} />
-                <Text style={styles.actionButtonText}>Gain</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.lossButton]}
-                onPress={() => handlePossession('loss')}
-              >
-                <ArrowDownCircle color="#fff" size={28} />
-                <Text style={styles.actionButtonText}>Loss</Text>
-              </TouchableOpacity>
-            </View>
 
             <Text style={styles.sectionTitle}>Penalty</Text>
             <View style={styles.penaltySection}>
