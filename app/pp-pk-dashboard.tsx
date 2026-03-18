@@ -24,7 +24,7 @@ export default function PPPKDashboardScreen() {
           headerStyle: { backgroundColor: '#0a0e1a' },
           headerTintColor: '#fff',
           headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/')} style={styles.backButton}>
               <ChevronLeft color="#fff" size={28} />
             </TouchableOpacity>
           ),
