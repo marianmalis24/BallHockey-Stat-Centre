@@ -300,6 +300,12 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
 
       const matchWithUndo = pushUndo(activeMatch, 'goal', goal.isOurTeam ? 'Our Goal' : 'Goal Against');
 
+      const now2 = Date.now();
+      const currentShifts = matchWithUndo.shifts || [];
+      const endedShifts = currentShifts.map((s) =>
+        !s.endTime ? { ...s, endTime: now2 } : s
+      );
+
       const updatedMatch = {
         ...matchWithUndo,
         goals: [...activeMatch.goals, newGoal],
@@ -308,9 +314,12 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         opponentScore: newOpponentScore,
         ourShots: goal.isOurTeam ? activeMatch.ourShots + 1 : activeMatch.ourShots,
         opponentShots: !goal.isOurTeam ? activeMatch.opponentShots + 1 : activeMatch.opponentShots,
+        shifts: endedShifts,
+        activeLineId: undefined,
       };
 
       console.log('New scores - Our:', newOurScore, 'Opponent:', newOpponentScore);
+      console.log('Auto-stopped shift on goal');
 
       const updatedMatches = matches.map((m) =>
         m.id === activeMatch.id ? updatedMatch : m

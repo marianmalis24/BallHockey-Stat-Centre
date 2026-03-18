@@ -1,4 +1,5 @@
 import { useHockey } from '@/contexts/hockey-context';
+import { useMatchFeatures } from '@/contexts/match-features-context';
 import { ShotLocation, ShotRisk } from '@/types/hockey';
 import { X } from 'lucide-react-native';
 import React, { useState } from 'react';
@@ -25,6 +26,7 @@ const NET_HEIGHT = NET_WIDTH * 0.6;
 
 export function ShotModal({ visible, isOurTeam, onClose, preselectedScorer, isGoalShot = false, goalShotId }: ShotModalProps) {
   const { players, activeMatch, addShot, updateGoalShotLocation } = useHockey();
+  const { features } = useMatchFeatures();
   const [location, setLocation] = useState<ShotLocation | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(preselectedScorer || null);
   const [shotRisk, setShotRisk] = useState<ShotRisk>('medium');
@@ -97,7 +99,7 @@ export function ShotModal({ visible, isOurTeam, onClose, preselectedScorer, isGo
         </View>
 
         <View style={styles.content}>
-          {!isGoalShot && (
+          {!isGoalShot && features.shotRisk && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Shot Danger</Text>
               <View style={styles.riskRow}>
@@ -151,7 +153,7 @@ export function ShotModal({ visible, isOurTeam, onClose, preselectedScorer, isGo
             </View>
           )}
 
-          {isOurTeam && (
+          {isOurTeam && features.shotMap && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Shot Target Location (Tap on net)</Text>
               <TouchableOpacity

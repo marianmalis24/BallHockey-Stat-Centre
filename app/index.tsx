@@ -7,9 +7,10 @@ import { MatchStatsModal } from '@/components/MatchStatsModal';
 import { FaceoffModal } from '@/components/FaceoffModal';
 import { ShootoutModal } from '@/components/ShootoutModal';
 import { Stack, router } from 'expo-router';
-import { Plus, Target, Users, BarChart3, AlertCircle, RefreshCw, TrendingUp, Shield, History, Zap, ShieldOff, Undo2, Activity, ShieldBan, CircleOff, GitCompare, PieChart, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { Plus, Target, Users, BarChart3, AlertCircle, RefreshCw, TrendingUp, Shield, History, Zap, ShieldOff, Undo2, Activity, ShieldBan, CircleOff, GitCompare, PieChart, ChevronDown, ChevronUp, Settings } from 'lucide-react-native';
 import { MomentumIndicator } from '@/components/MomentumIndicator';
 import { LineShiftTracker } from '@/components/LineShiftTracker';
+import { useMatchFeatures } from '@/contexts/match-features-context';
 import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
@@ -43,6 +44,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Season', icon: <Activity color="#FF2D55" size={22} />, route: '/season-dashboard', color: '#FF2D55', bgColor: 'rgba(255,45,85,0.12)' },
   { label: 'Compare', icon: <GitCompare color="#5856D6" size={22} />, route: '/player-compare', color: '#5856D6', bgColor: 'rgba(88,86,214,0.12)' },
   { label: 'PP/PK', icon: <PieChart color="#FF6B6B" size={22} />, route: '/pp-pk-dashboard', color: '#FF6B6B', bgColor: 'rgba(255,107,107,0.12)' },
+  { label: 'Features', icon: <Settings color="#8e8e93" size={22} />, route: '/match-features', color: '#8e8e93', bgColor: 'rgba(142,142,147,0.12)' },
 ];
 
 export default function GameScreen() {
@@ -57,6 +59,8 @@ export default function GameScreen() {
     getPPSHSummary,
     undoLastAction,
   } = useHockey();
+
+  const { features } = useMatchFeatures();
 
   const insets = useSafeAreaInsets();
 
@@ -91,12 +95,20 @@ export default function GameScreen() {
 
   const handleAddShot = useCallback((type: 'our' | 'opponent') => {
     if (type === 'opponent') {
-      setOppShotRiskVisible(true);
+      if (features.shotRisk) {
+        setOppShotRiskVisible(true);
+      } else {
+        addShot({
+          isOurTeam: false,
+          onGoal: true,
+          result: 'save',
+        });
+      }
     } else {
       setShotType(type);
       setShotModalVisible(true);
     }
-  }, []);
+  }, [features.shotRisk, addShot]);
 
   const handleOppShotWithRisk = useCallback((risk: ShotRisk) => {
     addShot({
@@ -357,7 +369,7 @@ export default function GameScreen() {
             <View style={styles.scoreMid}>
               <Text style={styles.opponentName} numberOfLines={1}>{activeMatch.opponentName}</Text>
               <Text style={styles.periodBadgeText}>{periodLabel}</Text>
-              {totalFO > 0 && <Text style={styles.foText}>FO {foPct}%</Text>}
+              {features.faceoffs && totalFO > 0 && <Text style={styles.foText}>FO {foPct}%</Text>}
             </View>
             <View style={styles.scoreTeam}>
               <Text style={styles.scoreTeamLabel}>OPP</Text>
@@ -371,26 +383,30 @@ export default function GameScreen() {
         </View>
 
         <View style={styles.gameStateRow}>
-          <TouchableOpacity
-            style={[styles.gsChip, currentGameState === 'even' && styles.gsChipActiveEven]}
-            onPress={() => handleGameStateChange('even')}
-          >
-            <Text style={[styles.gsChipText, currentGameState === 'even' && styles.gsChipTextActive]}>EV</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.gsChip, currentGameState === 'pp' && styles.gsChipActivePP]}
-            onPress={() => handleGameStateChange('pp')}
-          >
-            <Zap size={13} color={currentGameState === 'pp' ? '#fff' : '#FF9500'} />
-            <Text style={[styles.gsChipText, currentGameState === 'pp' && styles.gsChipTextActive]}>PP</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.gsChip, currentGameState === 'sh' && styles.gsChipActiveSH]}
-            onPress={() => handleGameStateChange('sh')}
-          >
-            <ShieldOff size={13} color={currentGameState === 'sh' ? '#fff' : '#FF3B30'} />
-            <Text style={[styles.gsChipText, currentGameState === 'sh' && styles.gsChipTextActive]}>SH</Text>
-          </TouchableOpacity>
+          {features.ppMode && (
+            <>
+              <TouchableOpacity
+                style={[styles.gsChip, currentGameState === 'even' && styles.gsChipActiveEven]}
+                onPress={() => handleGameStateChange('even')}
+              >
+                <Text style={[styles.gsChipText, currentGameState === 'even' && styles.gsChipTextActive]}>EV</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.gsChip, currentGameState === 'pp' && styles.gsChipActivePP]}
+                onPress={() => handleGameStateChange('pp')}
+              >
+                <Zap size={13} color={currentGameState === 'pp' ? '#fff' : '#FF9500'} />
+                <Text style={[styles.gsChipText, currentGameState === 'pp' && styles.gsChipTextActive]}>PP</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.gsChip, currentGameState === 'sh' && styles.gsChipActiveSH]}
+                onPress={() => handleGameStateChange('sh')}
+              >
+                <ShieldOff size={13} color={currentGameState === 'sh' ? '#fff' : '#FF3B30'} />
+                <Text style={[styles.gsChipText, currentGameState === 'sh' && styles.gsChipTextActive]}>SH</Text>
+              </TouchableOpacity>
+            </>
+          )}
 
           <View style={styles.gsChipSpacer} />
 
@@ -417,8 +433,8 @@ export default function GameScreen() {
         contentContainerStyle={styles.middleContent}
         showsVerticalScrollIndicator={false}
       >
-        <MomentumIndicator match={activeMatch} />
-        <LineShiftTracker />
+        {features.momentum && <MomentumIndicator match={activeMatch} />}
+        {features.shiftTracking && <LineShiftTracker />}
 
         <TouchableOpacity
           style={styles.expandToggle}
@@ -481,22 +497,32 @@ export default function GameScreen() {
             <Text style={styles.qBtnText}>SA</Text>
           </TouchableOpacity>
         </View>
-        <View style={styles.quickRow}>
-          <TouchableOpacity style={[styles.qBtn, styles.qBlocked]} onPress={handleShotBlocked}>
-            <ShieldBan color="#fff" size={16} />
-            <Text style={styles.qBtnText}>Block</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.qBtn, styles.qWide]} onPress={handleShotWide}>
-            <CircleOff color="#fff" size={16} />
-            <Text style={styles.qBtnText}>Wide</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.qBtn, styles.qFoWin]} onPress={() => handleFaceoff('win')}>
-            <Text style={styles.qBtnText}>FO Win</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.qBtn, styles.qFoLoss]} onPress={() => handleFaceoff('loss')}>
-            <Text style={styles.qBtnText}>FO Loss</Text>
-          </TouchableOpacity>
-        </View>
+        {(features.blockedShots || features.wideShots || features.faceoffs) && (
+          <View style={styles.quickRow}>
+            {features.blockedShots && (
+              <TouchableOpacity style={[styles.qBtn, styles.qBlocked]} onPress={handleShotBlocked}>
+                <ShieldBan color="#fff" size={16} />
+                <Text style={styles.qBtnText}>Block</Text>
+              </TouchableOpacity>
+            )}
+            {features.wideShots && (
+              <TouchableOpacity style={[styles.qBtn, styles.qWide]} onPress={handleShotWide}>
+                <CircleOff color="#fff" size={16} />
+                <Text style={styles.qBtnText}>Wide</Text>
+              </TouchableOpacity>
+            )}
+            {features.faceoffs && (
+              <>
+                <TouchableOpacity style={[styles.qBtn, styles.qFoWin]} onPress={() => handleFaceoff('win')}>
+                  <Text style={styles.qBtnText}>FO Win</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.qBtn, styles.qFoLoss]} onPress={() => handleFaceoff('loss')}>
+                  <Text style={styles.qBtnText}>FO Loss</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        )}
       </View>
 
       <GoalModal

@@ -1,4 +1,5 @@
 import { useHockey } from '@/contexts/hockey-context';
+import { useMatchFeatures } from '@/contexts/match-features-context';
 import { X, AlertTriangle } from 'lucide-react-native';
 import React from 'react';
 import {
@@ -19,6 +20,7 @@ interface PlayerActionModalProps {
 
 export function PlayerActionModal({ visible, player, isCenter, onClose }: PlayerActionModalProps) {
   const { addPenalty, addFaceoff } = useHockey();
+  const { features } = useMatchFeatures();
 
   if (!player) return null;
 
@@ -61,7 +63,7 @@ export function PlayerActionModal({ visible, player, isCenter, onClose }: Player
           </View>
 
           <View style={styles.content}>
-            {isCenter && (
+            {isCenter && features.faceoffs && (
                <>
                   <Text style={styles.sectionTitle}>Faceoff</Text>
                   <View style={styles.actionRow}>
@@ -81,7 +83,8 @@ export function PlayerActionModal({ visible, player, isCenter, onClose }: Player
                </>
             )}
 
-            <Text style={styles.sectionTitle}>Penalty</Text>
+            {features.penalties && <Text style={styles.sectionTitle}>Penalty</Text>}
+            {features.penalties && (
             <View style={styles.penaltySection}>
               <TouchableOpacity
                 style={[styles.actionButton, styles.penaltyButton]}
@@ -105,6 +108,7 @@ export function PlayerActionModal({ visible, player, isCenter, onClose }: Player
                 <Text style={styles.actionButtonText}>5 Min</Text>
               </TouchableOpacity>
             </View>
+            )}
           </View>
         </View>
       </View>

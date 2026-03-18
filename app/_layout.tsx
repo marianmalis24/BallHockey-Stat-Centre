@@ -5,6 +5,7 @@ import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { HockeyProvider } from "@/contexts/hockey-context";
 import { OpponentsProvider } from "@/contexts/opponents-context";
+import { MatchFeaturesProvider } from "@/contexts/match-features-context";
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -25,6 +26,7 @@ function RootLayoutNav() {
       <Stack.Screen name="season-dashboard" />
       <Stack.Screen name="player-compare" />
       <Stack.Screen name="pp-pk-dashboard" />
+      <Stack.Screen name="match-features" />
     </Stack>
   );
 }
@@ -38,9 +40,11 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <HockeyProvider>
         <OpponentsProvider>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <RootLayoutNav />
-          </GestureHandlerRootView>
+          <MatchFeaturesProvider>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <RootLayoutNav />
+            </GestureHandlerRootView>
+          </MatchFeaturesProvider>
         </OpponentsProvider>
       </HockeyProvider>
     </QueryClientProvider>

@@ -1,4 +1,5 @@
 import { useHockey } from '@/contexts/hockey-context';
+import { useMatchFeatures } from '@/contexts/match-features-context';
 import { X } from 'lucide-react-native';
 import React, { useState, useEffect } from 'react';
 import {
@@ -21,6 +22,7 @@ interface GoalModalProps {
 
 export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: GoalModalProps) {
   const { players, activeMatch, addGoal } = useHockey();
+  const { features } = useMatchFeatures();
   const [scorer, setScorer] = useState<string | null>(null);
   const [assists, setAssists] = useState<string[]>([]);
   const [plusPlayers, setPlusPlayers] = useState<string[]>([]);
@@ -141,30 +143,32 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
         </View>
 
         <ScrollView style={styles.content}>
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Shot Danger</Text>
-            <View style={styles.riskRow}>
-              {(['low', 'medium', 'high'] as ShotRisk[]).map((risk) => (
-                <TouchableOpacity
-                  key={risk}
-                  style={[
-                    styles.riskBadge,
-                    shotRisk === risk && { backgroundColor: riskColors[risk], borderColor: riskColors[risk] },
-                  ]}
-                  onPress={() => setShotRisk(risk)}
-                >
-                  <Text
+          {features.shotRisk && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Shot Danger</Text>
+              <View style={styles.riskRow}>
+                {(['low', 'medium', 'high'] as ShotRisk[]).map((risk) => (
+                  <TouchableOpacity
+                    key={risk}
                     style={[
-                      styles.riskBadgeText,
-                      shotRisk === risk && styles.riskBadgeTextSelected,
+                      styles.riskBadge,
+                      shotRisk === risk && { backgroundColor: riskColors[risk], borderColor: riskColors[risk] },
                     ]}
+                    onPress={() => setShotRisk(risk)}
                   >
-                    {risk.charAt(0).toUpperCase() + risk.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <Text
+                      style={[
+                        styles.riskBadgeText,
+                        shotRisk === risk && styles.riskBadgeTextSelected,
+                      ]}
+                    >
+                      {risk.charAt(0).toUpperCase() + risk.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
-          </View>
+          )}
 
           {isOurTeam && (
             <>
