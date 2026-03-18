@@ -7,7 +7,7 @@ import { MatchStatsModal } from '@/components/MatchStatsModal';
 import { FaceoffModal } from '@/components/FaceoffModal';
 import { ShootoutModal } from '@/components/ShootoutModal';
 import { Stack, router } from 'expo-router';
-import { Plus, Target, Users, BarChart3, AlertCircle, RefreshCw, Clock, TrendingUp, Shield, History, Zap, ShieldOff, Circle, Undo2, Activity, ShieldBan, CircleOff, GitCompare, PieChart } from 'lucide-react-native';
+import { Plus, Target, Users, BarChart3, AlertCircle, RefreshCw, TrendingUp, Shield, History, Zap, ShieldOff, Undo2, Activity, ShieldBan, CircleOff, GitCompare, PieChart, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { MomentumIndicator } from '@/components/MomentumIndicator';
 import { LineShiftTracker } from '@/components/LineShiftTracker';
 import React, { useState, useCallback, useRef } from 'react';
@@ -20,8 +20,30 @@ import {
   Alert,
   Modal,
   Animated,
+  Dimensions,
 } from 'react-native';
 import { Player, GameState, ShotRisk } from '@/types/hockey';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+interface NavItem {
+  label: string;
+  icon: React.ReactNode;
+  route: string;
+  color: string;
+  bgColor: string;
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { label: 'Players', icon: <Users color="#5ac8fa" size={22} />, route: '/players', color: '#5ac8fa', bgColor: 'rgba(90,200,250,0.12)' },
+  { label: 'Statistics', icon: <BarChart3 color="#34C759" size={22} />, route: '/stats', color: '#34C759', bgColor: 'rgba(52,199,89,0.12)' },
+  { label: 'Opponents', icon: <Shield color="#FF9500" size={22} />, route: '/opponents', color: '#FF9500', bgColor: 'rgba(255,149,0,0.12)' },
+  { label: 'Match History', icon: <History color="#AF52DE" size={22} />, route: '/match-history', color: '#AF52DE', bgColor: 'rgba(175,82,222,0.12)' },
+  { label: 'Season', icon: <Activity color="#FF2D55" size={22} />, route: '/season-dashboard', color: '#FF2D55', bgColor: 'rgba(255,45,85,0.12)' },
+  { label: 'Compare', icon: <GitCompare color="#5856D6" size={22} />, route: '/player-compare', color: '#5856D6', bgColor: 'rgba(88,86,214,0.12)' },
+  { label: 'PP/PK', icon: <PieChart color="#FF6B6B" size={22} />, route: '/pp-pk-dashboard', color: '#FF6B6B', bgColor: 'rgba(255,107,107,0.12)' },
+];
 
 export default function GameScreen() {
   const {
@@ -35,6 +57,8 @@ export default function GameScreen() {
     getPPSHSummary,
     undoLastAction,
   } = useHockey();
+
+  const insets = useSafeAreaInsets();
 
   const [goalModalVisible, setGoalModalVisible] = useState(false);
   const [shotModalVisible, setShotModalVisible] = useState(false);
@@ -53,6 +77,7 @@ export default function GameScreen() {
   const [oppShotRiskVisible, setOppShotRiskVisible] = useState(false);
   const [blockedPlayerPickerVisible, setBlockedPlayerPickerVisible] = useState(false);
   const [widePlayerPickerVisible, setWidePlayerPickerVisible] = useState(false);
+  const [moreExpanded, setMoreExpanded] = useState(false);
   const [ppshSummary, setPpshSummary] = useState<{ type: GameState | undefined; ourShots: number; oppShots: number; ourGoals: number; oppGoals: number; foWins: number; foLosses: number } | null>(null);
   const ppshOpacity = useRef(new Animated.Value(0)).current;
   const ppshTranslateY = useRef(new Animated.Value(-30)).current;
@@ -252,68 +277,35 @@ export default function GameScreen() {
 
   if (!activeMatch) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <Stack.Screen options={{ headerShown: false }} />
-        <View style={styles.emptyContainer}>
-          <AlertCircle color="#8e8e93" size={64} />
-          <Text style={styles.emptyTitle}>No Active Match</Text>
-          <Text style={styles.emptyText}>Start a new match to begin tracking</Text>
-          <TouchableOpacity
-            style={styles.startButton}
-            onPress={() => router.push('/match-setup')}
-          >
-            <Plus color="#fff" size={20} />
-            <Text style={styles.startButtonText}>Start New Match</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={() => router.push('/players')}
-          >
-            <Users color="#007AFF" size={20} />
-            <Text style={styles.secondaryButtonText}>Manage Players</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={() => router.push('/stats')}
-          >
-            <BarChart3 color="#007AFF" size={20} />
-            <Text style={styles.secondaryButtonText}>View Statistics</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={() => router.push('/opponents')}
-          >
-            <Shield color="#007AFF" size={20} />
-            <Text style={styles.secondaryButtonText}>Manage Opponents</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={() => router.push('/match-history')}
-          >
-            <History color="#007AFF" size={20} />
-            <Text style={styles.secondaryButtonText}>Match History</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={() => router.push('/season-dashboard')}
-          >
-            <Activity color="#007AFF" size={20} />
-            <Text style={styles.secondaryButtonText}>Season Dashboard</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={() => router.push('/player-compare')}
-          >
-            <GitCompare color="#007AFF" size={20} />
-            <Text style={styles.secondaryButtonText}>Compare Players</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={() => router.push('/pp-pk-dashboard')}
-          >
-            <PieChart color="#007AFF" size={20} />
-            <Text style={styles.secondaryButtonText}>PP/PK Dashboard</Text>
-          </TouchableOpacity>
+        <View style={styles.homeHeader}>
+          <Text style={styles.homeTitle}>Hockey Tracker</Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.bigStartButton}
+          onPress={() => router.push('/match-setup')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.bigStartInner}>
+            <Plus color="#fff" size={28} />
+            <Text style={styles.bigStartText}>Start New Match</Text>
+          </View>
+        </TouchableOpacity>
+
+        <View style={styles.navGrid}>
+          {NAV_ITEMS.map((item) => (
+            <TouchableOpacity
+              key={item.route}
+              style={[styles.navCard, { backgroundColor: item.bgColor }]}
+              onPress={() => router.push(item.route as never)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.navCardIcon}>{item.icon}</View>
+              <Text style={[styles.navCardLabel, { color: item.color }]}>{item.label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
       </View>
     );
@@ -324,212 +316,125 @@ export default function GameScreen() {
   );
 
   const activeGoalie = players.find((p) => p.id === activeMatch.activeGoalieId) ?? null;
-
   const currentGameState = activeMatch.gameState || 'even';
 
   const periodLabel = activeMatch.isOvertime
     ? `OT${activeMatch.currentPeriod - 3 > 0 ? activeMatch.currentPeriod - 3 : ''}`
-    : `Period ${activeMatch.currentPeriod || 1}`;
+    : `P${activeMatch.currentPeriod || 1}`;
 
   const getEndButtonText = () => {
     const cp = activeMatch.currentPeriod || 1;
     const isDraw = activeMatch.ourScore === activeMatch.opponentScore;
     if (cp >= 3 && !isDraw) return 'End Match';
     if (activeMatch.isOvertime) return `End ${periodLabel}`;
-    return `End Period ${cp}`;
+    return `End P${cp}`;
   };
+
+  const totalFO = (activeMatch.faceoffs || []).length;
+  const foWins = (activeMatch.faceoffs || []).filter(f => activeMatch.roster.some(r => r.playerId === f.winnerId)).length;
+  const foPct = totalFO > 0 ? Math.round((foWins / totalFO) * 100) : 0;
+
+  const hasMultipleGoalies = players.filter(
+    (p) => activeMatch.roster.some((r) => r.playerId === p.id) && p.position === 'goalie'
+  ).length > 1;
 
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => router.push('/players')}>
-          <Users color="#007AFF" size={24} />
-        </TouchableOpacity>
-        <View style={{ alignItems: 'center' }}>
-          <Text style={styles.topBarTitle}>Live Match</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Clock size={14} color="#8e8e93" />
-            <Text style={{ color: '#8e8e93', fontSize: 12, fontWeight: '600' as const }}>
-              {periodLabel}
-            </Text>
-          </View>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <TouchableOpacity onPress={handleUndo} style={styles.undoBtn}>
-            <Undo2 color={(activeMatch?.undoStack?.length ?? 0) > 0 ? '#FF9500' : '#3a3a3c'} size={22} />
+      {/* FIXED TOP: Scoreboard + Game State */}
+      <View style={[styles.fixedTop, { paddingTop: insets.top + 4 }]}>
+        <View style={styles.topRow}>
+          <TouchableOpacity onPress={handleUndo} style={styles.topIconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Undo2 color={(activeMatch?.undoStack?.length ?? 0) > 0 ? '#FF9500' : '#3a3a3c'} size={20} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/stats')}>
-            <BarChart3 color="#007AFF" size={24} />
+          <View style={styles.compactScore}>
+            <View style={styles.scoreTeam}>
+              <Text style={styles.scoreTeamLabel}>US</Text>
+              <Text style={styles.scoreBig}>{activeMatch.ourScore}</Text>
+              <Text style={styles.scoreShotCount}>{activeMatch.ourShots}S</Text>
+            </View>
+            <View style={styles.scoreMid}>
+              <Text style={styles.opponentName} numberOfLines={1}>{activeMatch.opponentName}</Text>
+              <Text style={styles.periodBadgeText}>{periodLabel}</Text>
+              {totalFO > 0 && <Text style={styles.foText}>FO {foPct}%</Text>}
+            </View>
+            <View style={styles.scoreTeam}>
+              <Text style={styles.scoreTeamLabel}>OPP</Text>
+              <Text style={styles.scoreBig}>{activeMatch.opponentScore}</Text>
+              <Text style={styles.scoreShotCount}>{activeMatch.opponentShots}S</Text>
+            </View>
+          </View>
+          <TouchableOpacity onPress={() => setMatchStatsVisible(true)} style={styles.topIconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TrendingUp color="#007AFF" size={20} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.gameStateRow}>
+          <TouchableOpacity
+            style={[styles.gsChip, currentGameState === 'even' && styles.gsChipActiveEven]}
+            onPress={() => handleGameStateChange('even')}
+          >
+            <Text style={[styles.gsChipText, currentGameState === 'even' && styles.gsChipTextActive]}>EV</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.gsChip, currentGameState === 'pp' && styles.gsChipActivePP]}
+            onPress={() => handleGameStateChange('pp')}
+          >
+            <Zap size={13} color={currentGameState === 'pp' ? '#fff' : '#FF9500'} />
+            <Text style={[styles.gsChipText, currentGameState === 'pp' && styles.gsChipTextActive]}>PP</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.gsChip, currentGameState === 'sh' && styles.gsChipActiveSH]}
+            onPress={() => handleGameStateChange('sh')}
+          >
+            <ShieldOff size={13} color={currentGameState === 'sh' ? '#fff' : '#FF3B30'} />
+            <Text style={[styles.gsChipText, currentGameState === 'sh' && styles.gsChipTextActive]}>SH</Text>
+          </TouchableOpacity>
+
+          <View style={styles.gsChipSpacer} />
+
+          {activeGoalie && (
+            <TouchableOpacity
+              style={styles.goalieChip}
+              onPress={hasMultipleGoalies ? handleSwapGoalie : undefined}
+              activeOpacity={hasMultipleGoalies ? 0.7 : 1}
+            >
+              <Text style={styles.goalieChipText}>#{activeGoalie.jerseyNumber}</Text>
+              {hasMultipleGoalies && <RefreshCw size={11} color="#34C759" />}
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity style={styles.endPeriodChip} onPress={handlePeriodAction}>
+            <Text style={styles.endPeriodText}>{getEndButtonText()}</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      <ScrollView style={styles.scrollContent} contentContainerStyle={styles.content}>
-        <View style={styles.scoreSection}>
-          <Text style={styles.opponent}>{activeMatch.opponentName}</Text>
-          <View style={styles.scoreBoard}>
-            <View style={styles.scoreColumn}>
-              <Text style={styles.teamLabel}>Us</Text>
-              <Text style={styles.score}>{activeMatch.ourScore}</Text>
-              <Text style={styles.shots}>{activeMatch.ourShots} shots</Text>
-              {(() => {
-                const totalFO = (activeMatch.faceoffs || []).length;
-                const foWins = (activeMatch.faceoffs || []).filter(f => activeMatch.roster.some(r => r.playerId === f.winnerId)).length;
-                const foPct = totalFO > 0 ? Math.round((foWins / totalFO) * 100) : 0;
-                return totalFO > 0 ? <Text style={styles.foPercent}>FO {foPct}%</Text> : null;
-              })()}
-            </View>
-            <View style={styles.scoreDivider} />
-            <View style={styles.scoreColumn}>
-              <Text style={styles.teamLabel}>Them</Text>
-              <Text style={styles.score}>{activeMatch.opponentScore}</Text>
-              <Text style={styles.shots}>{activeMatch.opponentShots} shots</Text>
-              {(() => {
-                const totalFO = (activeMatch.faceoffs || []).length;
-                const foLosses = (activeMatch.faceoffs || []).filter(f => activeMatch.roster.some(r => r.playerId === f.loserId)).length;
-                const foPct = totalFO > 0 ? Math.round((foLosses / totalFO) * 100) : 0;
-                return totalFO > 0 ? <Text style={styles.foPercent}>FO {foPct}%</Text> : null;
-              })()}
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.gameStateSection}>
-          <TouchableOpacity
-            style={[styles.gsBtn, currentGameState === 'even' && styles.gsBtnActiveEven]}
-            onPress={() => handleGameStateChange('even')}
-          >
-            <Circle size={16} color={currentGameState === 'even' ? '#fff' : '#8e8e93'} />
-            <Text style={[styles.gsBtnText, currentGameState === 'even' && styles.gsBtnTextActive]}>EV</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.gsBtn, currentGameState === 'pp' && styles.gsBtnActivePP]}
-            onPress={() => handleGameStateChange('pp')}
-          >
-            <Zap size={16} color={currentGameState === 'pp' ? '#fff' : '#FF9500'} />
-            <Text style={[styles.gsBtnText, currentGameState === 'pp' && styles.gsBtnTextActive]}>PP</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.gsBtn, currentGameState === 'sh' && styles.gsBtnActiveSH]}
-            onPress={() => handleGameStateChange('sh')}
-          >
-            <ShieldOff size={16} color={currentGameState === 'sh' ? '#fff' : '#FF3B30'} />
-            <Text style={[styles.gsBtnText, currentGameState === 'sh' && styles.gsBtnTextActive]}>SH</Text>
-          </TouchableOpacity>
-        </View>
-
+      {/* SCROLLABLE MIDDLE: Momentum, Lines, Roster */}
+      <ScrollView
+        style={styles.middleScroll}
+        contentContainerStyle={styles.middleContent}
+        showsVerticalScrollIndicator={false}
+      >
         <MomentumIndicator match={activeMatch} />
-
-        <TouchableOpacity
-          style={styles.matchStatsButton}
-          onPress={() => setMatchStatsVisible(true)}
-        >
-          <TrendingUp color="#007AFF" size={20} />
-          <Text style={styles.matchStatsButtonText}>View Match Stats</Text>
-        </TouchableOpacity>
-
-        <View style={styles.actionsSection}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.actionGrid}>
-            <TouchableOpacity
-              style={[styles.actionCard, styles.goalCard]}
-              onPress={() => handleAddGoal('our')}
-            >
-              <Plus color="#fff" size={20} />
-              <Text style={styles.actionCardTitle}>Our Goal</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionCard, styles.goalAgainstCard]}
-              onPress={() => handleAddGoal('opponent')}
-            >
-              <AlertCircle color="#fff" size={20} />
-              <Text style={styles.actionCardTitle}>Goal Against</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.actionGrid}>
-            <TouchableOpacity
-              style={[styles.actionCard, styles.shotCard]}
-              onPress={() => handleAddShot('our')}
-            >
-              <Target color="#fff" size={20} />
-              <Text style={styles.actionCardTitle}>Our Shot</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionCard, styles.shotAgainstCard]}
-              onPress={() => handleAddShot('opponent')}
-            >
-              <Target color="#fff" size={20} />
-              <Text style={styles.actionCardTitle}>Shot Against</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.actionGrid}>
-            <TouchableOpacity
-              style={[styles.actionCard, styles.shotBlockedCard]}
-              onPress={handleShotBlocked}
-            >
-              <ShieldBan color="#fff" size={20} />
-              <Text style={styles.actionCardTitle}>Shot Blocked</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionCard, styles.shotWideCard]}
-              onPress={handleShotWide}
-            >
-              <CircleOff color="#fff" size={20} />
-              <Text style={styles.actionCardTitle}>Shot Wide</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.faceoffRow}>
-            <TouchableOpacity
-              style={[styles.faceoffBtn, styles.foWinBtn]}
-              onPress={() => handleFaceoff('win')}
-            >
-              <Text style={styles.faceoffBtnText}>FO Win</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.faceoffBtn, styles.foLossBtn]}
-              onPress={() => handleFaceoff('loss')}
-            >
-              <Text style={styles.faceoffBtnText}>FO Loss</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {activeGoalie && (
-          <View style={styles.goalieSection}>
-            <View style={styles.goalieSectionHeader}>
-              <Text style={styles.sectionTitle}>Starting Goalie</Text>
-              {players.filter(
-                (p) =>
-                  activeMatch.roster.some((r) => r.playerId === p.id) &&
-                  p.position === 'goalie'
-              ).length > 1 && (
-                <TouchableOpacity
-                  style={styles.swapButton}
-                  onPress={handleSwapGoalie}
-                >
-                  <RefreshCw color="#007AFF" size={20} />
-                  <Text style={styles.swapButtonText}>Swap</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-            <View style={styles.goalieCard}>
-              <View style={styles.goalieJerseyBadge}>
-                <Text style={styles.goalieJerseyNumber}>{activeGoalie.jerseyNumber}</Text>
-              </View>
-              <View style={styles.goalieInfo}>
-                <Text style={styles.goalieName}>{activeGoalie.name}</Text>
-                <Text style={styles.goalieLabel}>In Net</Text>
-              </View>
-            </View>
-          </View>
-        )}
-
         <LineShiftTracker />
 
-        <View style={styles.rosterSection}>
-          <Text style={styles.sectionTitle}>Active Roster</Text>
+        <TouchableOpacity
+          style={styles.expandToggle}
+          onPress={() => setMoreExpanded(!moreExpanded)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.expandToggleText}>
+            Roster ({rosterPlayers.filter(p => p.position !== 'goalie').length})
+          </Text>
+          {moreExpanded
+            ? <ChevronUp size={16} color="#8e8e93" />
+            : <ChevronDown size={16} color="#8e8e93" />
+          }
+        </TouchableOpacity>
+
+        {moreExpanded && (
           <View style={styles.rosterGrid}>
             {rosterPlayers
               .filter((p) => p.position !== 'goalie')
@@ -551,12 +456,48 @@ export default function GameScreen() {
                 </TouchableOpacity>
               ))}
           </View>
-        </View>
+        )}
 
-        <TouchableOpacity style={styles.endMatchButton} onPress={handlePeriodAction}>
-          <Text style={styles.endMatchButtonText}>{getEndButtonText()}</Text>
-        </TouchableOpacity>
+        <View style={{ height: 16 }} />
       </ScrollView>
+
+      {/* FIXED BOTTOM: Quick Actions */}
+      <View style={[styles.fixedBottom, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+        <View style={styles.quickRow}>
+          <TouchableOpacity style={[styles.qBtn, styles.qGoal]} onPress={() => handleAddGoal('our')}>
+            <Plus color="#fff" size={16} />
+            <Text style={styles.qBtnText}>Goal</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.qBtn, styles.qGoalAgainst]} onPress={() => handleAddGoal('opponent')}>
+            <AlertCircle color="#fff" size={16} />
+            <Text style={styles.qBtnText}>GA</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.qBtn, styles.qShot]} onPress={() => handleAddShot('our')}>
+            <Target color="#fff" size={16} />
+            <Text style={styles.qBtnText}>Shot</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.qBtn, styles.qShotAgainst]} onPress={() => handleAddShot('opponent')}>
+            <Target color="#fff" size={16} />
+            <Text style={styles.qBtnText}>SA</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.quickRow}>
+          <TouchableOpacity style={[styles.qBtn, styles.qBlocked]} onPress={handleShotBlocked}>
+            <ShieldBan color="#fff" size={16} />
+            <Text style={styles.qBtnText}>Block</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.qBtn, styles.qWide]} onPress={handleShotWide}>
+            <CircleOff color="#fff" size={16} />
+            <Text style={styles.qBtnText}>Wide</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.qBtn, styles.qFoWin]} onPress={() => handleFaceoff('win')}>
+            <Text style={styles.qBtnText}>FO Win</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.qBtn, styles.qFoLoss]} onPress={() => handleFaceoff('loss')}>
+            <Text style={styles.qBtnText}>FO Loss</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
       <GoalModal
         visible={goalModalVisible}
@@ -760,366 +701,321 @@ export default function GameScreen() {
   );
 }
 
+const CARD_GAP = 10;
+const CARD_COLS = 4;
+const CARD_MARGIN = 16;
+const CARD_WIDTH = (SCREEN_WIDTH - CARD_MARGIN * 2 - CARD_GAP * (CARD_COLS - 1)) / CARD_COLS;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0a0e1a',
   },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 60,
-    paddingBottom: 16,
-    backgroundColor: '#0a0e1a',
+
+  // ===== HOME (no match) =====
+  homeHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
   },
-  topBarTitle: {
-    fontSize: 17,
-    fontWeight: '600' as const,
+  homeTitle: {
+    fontSize: 28,
+    fontWeight: '800' as const,
     color: '#fff',
+    letterSpacing: -0.5,
   },
-  scrollContent: {
-    flex: 1,
-  },
-  content: {
-    paddingBottom: 32,
-  },
-  scoreSection: {
-    paddingHorizontal: 16,
-    paddingVertical: 24,
-  },
-  opponent: {
-    fontSize: 18,
-    fontWeight: '600' as const,
-    color: '#8e8e93',
-    textAlign: 'center' as const,
-    marginBottom: 16,
-  },
-  scoreBoard: {
-    flexDirection: 'row',
-    backgroundColor: '#1c1c1e',
+  bigStartButton: {
+    marginHorizontal: 16,
+    marginBottom: 24,
     borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
+    overflow: 'hidden',
   },
-  scoreColumn: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  teamLabel: {
-    fontSize: 14,
-    fontWeight: '500' as const,
-    color: '#8e8e93',
-    marginBottom: 8,
-  },
-  score: {
-    fontSize: 56,
-    fontWeight: '700' as const,
-    color: '#fff',
-    marginBottom: 4,
-  },
-  shots: {
-    fontSize: 14,
-    color: '#8e8e93',
-  },
-  foPercent: {
-    fontSize: 12,
-    color: '#5ac8fa',
-    fontWeight: '600' as const,
-    marginTop: 2,
-  },
-  scoreDivider: {
-    width: 1,
-    height: 80,
-    backgroundColor: '#3a3a3c',
-    marginHorizontal: 16,
-  },
-  gameStateSection: {
-    flexDirection: 'row',
-    marginHorizontal: 16,
-    marginBottom: 12,
-    backgroundColor: '#1c1c1e',
-    borderRadius: 12,
-    padding: 4,
-    gap: 4,
-  },
-  gsBtn: {
-    flex: 1,
+  bigStartInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  gsBtnActiveEven: {
-    backgroundColor: '#3a3a3c',
-  },
-  gsBtnActivePP: {
-    backgroundColor: '#FF9500',
-  },
-  gsBtnActiveSH: {
-    backgroundColor: '#FF3B30',
-  },
-  gsBtnText: {
-    fontSize: 14,
-    fontWeight: '700' as const,
-    color: '#8e8e93',
-  },
-  gsBtnTextActive: {
-    color: '#fff',
-  },
-  actionsSection: {
-    paddingHorizontal: 16,
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700' as const,
-    color: '#fff',
-    marginBottom: 12,
-  },
-  actionGrid: {
-    flexDirection: 'row',
     gap: 10,
-    marginBottom: 10,
-  },
-  actionCard: {
-    flex: 1,
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 6,
-  },
-  goalCard: {
+    paddingVertical: 20,
     backgroundColor: '#34C759',
+    borderRadius: 16,
   },
-  shotCard: {
-    backgroundColor: '#007AFF',
-  },
-  goalAgainstCard: {
-    backgroundColor: '#FF3B30',
-  },
-  shotAgainstCard: {
-    backgroundColor: '#FF9500',
-  },
-  shotBlockedCard: {
-    backgroundColor: '#5856D6',
-  },
-  shotWideCard: {
-    backgroundColor: '#8e8e93',
-  },
-  actionCardTitle: {
-    fontSize: 13,
-    fontWeight: '600' as const,
+  bigStartText: {
     color: '#fff',
-    textAlign: 'center' as const,
+    fontSize: 19,
+    fontWeight: '700' as const,
   },
-  faceoffRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  faceoffBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  foWinBtn: {
-    backgroundColor: '#2d6a4f',
-  },
-  foLossBtn: {
-    backgroundColor: '#6c3d1a',
-  },
-  faceoffBtnText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600' as const,
-  },
-  rosterSection: {
-    paddingHorizontal: 16,
-    marginBottom: 24,
-  },
-  rosterGrid: {
+  navGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    paddingHorizontal: 16,
     gap: 12,
   },
-  rosterCard: {
-    backgroundColor: '#1c1c1e',
-    borderRadius: 12,
-    padding: 12,
+  navCard: {
+    width: (SCREEN_WIDTH - 32 - 24) / 3,
+    borderRadius: 14,
+    paddingVertical: 20,
     alignItems: 'center',
-    width: '22%',
+    justifyContent: 'center',
+    gap: 8,
   },
-  rosterBadge: {
+  navCardIcon: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#007AFF',
+    backgroundColor: 'rgba(255,255,255,0.06)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
   },
-  rosterNumber: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: '#fff',
-  },
-  rosterName: {
+  navCardLabel: {
     fontSize: 12,
-    fontWeight: '500' as const,
-    color: '#fff',
-    marginBottom: 2,
+    fontWeight: '600' as const,
     textAlign: 'center' as const,
   },
-  rosterPosition: {
-    fontSize: 10,
-    color: '#8e8e93',
+
+  // ===== MATCH: Fixed top =====
+  fixedTop: {
+    backgroundColor: '#0a0e1a',
+    paddingHorizontal: 12,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1c1c1e',
   },
-  endMatchButton: {
-    marginHorizontal: 16,
-    backgroundColor: '#FF3B30',
-    borderRadius: 12,
-    paddingVertical: 16,
+  topRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 6,
   },
-  endMatchButtonText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '600' as const,
+  topIconBtn: {
+    padding: 6,
   },
-  emptyContainer: {
+  compactScore: {
     flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 32,
-    paddingTop: 60,
   },
-  emptyTitle: {
-    fontSize: 28,
+  scoreTeam: {
+    alignItems: 'center',
+    width: 60,
+  },
+  scoreTeamLabel: {
+    fontSize: 10,
     fontWeight: '700' as const,
-    color: '#fff',
-    marginTop: 16,
-    marginBottom: 8,
+    color: '#636366',
+    letterSpacing: 1,
   },
-  emptyText: {
-    fontSize: 16,
+  scoreBig: {
+    fontSize: 36,
+    fontWeight: '800' as const,
+    color: '#fff',
+    lineHeight: 40,
+  },
+  scoreShotCount: {
+    fontSize: 11,
     color: '#8e8e93',
-    textAlign: 'center' as const,
-    marginBottom: 32,
-  },
-  startButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#34C759',
-    paddingVertical: 14,
-    paddingHorizontal: 28,
-    borderRadius: 24,
-    gap: 8,
-    marginBottom: 12,
-  },
-  startButtonText: {
-    color: '#fff',
-    fontSize: 17,
     fontWeight: '600' as const,
   },
-  secondaryButton: {
-    flexDirection: 'row',
+  scoreMid: {
     alignItems: 'center',
-    backgroundColor: '#1c1c1e',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 24,
-    gap: 8,
-    marginBottom: 12,
+    paddingHorizontal: 12,
+    gap: 2,
   },
-  secondaryButtonText: {
-    color: '#007AFF',
-    fontSize: 16,
+  opponentName: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: '#8e8e93',
+    maxWidth: 120,
+  },
+  periodBadgeText: {
+    fontSize: 13,
+    fontWeight: '800' as const,
+    color: '#5ac8fa',
+  },
+  foText: {
+    fontSize: 10,
+    color: '#5ac8fa',
     fontWeight: '600' as const,
   },
-  matchStatsButton: {
+
+  gameStateRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    backgroundColor: '#1c1c1e',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#007AFF',
+    gap: 6,
   },
-  matchStatsButtonText: {
-    color: '#007AFF',
-    fontSize: 16,
-    fontWeight: '600' as const,
-  },
-  goalieSection: {
-    paddingHorizontal: 16,
-    marginBottom: 24,
-  },
-  goalieSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  swapButton: {
+  gsChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: '#1c1c1e',
     borderRadius: 8,
-  },
-  swapButtonText: {
-    color: '#007AFF',
-    fontSize: 14,
-    fontWeight: '600' as const,
-  },
-  goalieCard: {
     backgroundColor: '#1c1c1e',
-    borderRadius: 12,
-    padding: 16,
+  },
+  gsChipActiveEven: {
+    backgroundColor: '#3a3a3c',
+  },
+  gsChipActivePP: {
+    backgroundColor: '#FF9500',
+  },
+  gsChipActiveSH: {
+    backgroundColor: '#FF3B30',
+  },
+  gsChipText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    color: '#636366',
+  },
+  gsChipTextActive: {
+    color: '#fff',
+  },
+  gsChipSpacer: {
+    flex: 1,
+  },
+  goalieChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 4,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(52,199,89,0.15)',
   },
-  goalieJerseyBadge: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#34C759',
+  goalieChipText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    color: '#34C759',
+  },
+  endPeriodChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,59,48,0.15)',
+  },
+  endPeriodText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    color: '#FF3B30',
+  },
+
+  // ===== MATCH: Scrollable middle =====
+  middleScroll: {
+    flex: 1,
+  },
+  middleContent: {
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+
+  expandToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: '#1c1c1e',
+    borderRadius: 10,
+    marginBottom: 8,
+  },
+  expandToggleText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#8e8e93',
+  },
+
+  rosterGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  rosterCard: {
+    backgroundColor: '#1c1c1e',
+    borderRadius: 10,
+    padding: 8,
+    alignItems: 'center',
+    width: CARD_WIDTH,
+  },
+  rosterBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#007AFF',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 4,
   },
-  goalieJerseyNumber: {
-    fontSize: 24,
+  rosterNumber: {
+    fontSize: 15,
     fontWeight: '700' as const,
     color: '#fff',
   },
-  goalieInfo: {
-    flex: 1,
-  },
-  goalieName: {
-    fontSize: 18,
-    fontWeight: '600' as const,
+  rosterName: {
+    fontSize: 10,
+    fontWeight: '500' as const,
     color: '#fff',
-    marginBottom: 4,
+    marginBottom: 1,
+    textAlign: 'center' as const,
   },
-  goalieLabel: {
-    fontSize: 14,
-    color: '#34C759',
+  rosterPosition: {
+    fontSize: 9,
+    color: '#8e8e93',
   },
+
+  // ===== MATCH: Fixed bottom quick actions =====
+  fixedBottom: {
+    backgroundColor: '#0a0e1a',
+    paddingHorizontal: 8,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#1c1c1e',
+  },
+  quickRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 6,
+  },
+  qBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  qBtnText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    color: '#fff',
+  },
+  qGoal: {
+    backgroundColor: '#34C759',
+  },
+  qGoalAgainst: {
+    backgroundColor: '#FF3B30',
+  },
+  qShot: {
+    backgroundColor: '#007AFF',
+  },
+  qShotAgainst: {
+    backgroundColor: '#FF9500',
+  },
+  qBlocked: {
+    backgroundColor: '#5856D6',
+  },
+  qWide: {
+    backgroundColor: '#636366',
+  },
+  qFoWin: {
+    backgroundColor: '#2d6a4f',
+  },
+  qFoLoss: {
+    backgroundColor: '#6c3d1a',
+  },
+
+  // ===== Modals =====
   riskOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
@@ -1181,6 +1077,8 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     color: '#fff',
   },
+
+  // ===== PP/SH Toast =====
   ppshToast: {
     position: 'absolute',
     top: 110,
@@ -1262,8 +1160,5 @@ const styles = StyleSheet.create({
   },
   ppshProgressSH: {
     backgroundColor: '#FF3B30',
-  },
-  undoBtn: {
-    padding: 4,
   },
 });
