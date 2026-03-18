@@ -10,9 +10,8 @@ import {
   StyleSheet,
   Platform,
   Alert,
+  Share,
 } from 'react-native';
-import { File, Paths } from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
 
 export default function SeasonDashboardScreen() {
   const { calculateSeasonStats, exportSeasonCSV } = useHockey();
@@ -32,18 +31,10 @@ export default function SeasonDashboardScreen() {
         a.click();
         URL.revokeObjectURL(url);
       } else {
-        const file = new File(Paths.cache, 'season_stats.csv');
-        file.write(csv);
-        const fileUri = file.uri;
-        const isAvailable = await Sharing.isAvailableAsync();
-        if (isAvailable) {
-          await Sharing.shareAsync(fileUri, {
-            mimeType: 'text/csv',
-            dialogTitle: 'Export Season Stats',
-          });
-        } else {
-          Alert.alert('Export', 'Sharing is not available on this device');
-        }
+        await Share.share({
+          message: csv,
+          title: 'Season Stats CSV',
+        });
       }
     } catch (error) {
       console.error('CSV export error:', error);
