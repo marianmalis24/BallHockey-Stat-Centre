@@ -222,7 +222,7 @@ export default function MatchDetailScreen() {
           options={{
             title: 'Match Detail',
             headerLeft: () => (
-              <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/')} style={styles.backButton}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                 <ChevronLeft color="#007AFF" size={28} />
               </TouchableOpacity>
             ),
@@ -256,7 +256,7 @@ export default function MatchDetailScreen() {
         options={{
           title: 'Match Detail',
           headerLeft: () => (
-            <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/')} style={styles.backButton}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
               <ChevronLeft color="#007AFF" size={28} />
             </TouchableOpacity>
           ),
