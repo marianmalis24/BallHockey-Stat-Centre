@@ -689,6 +689,7 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         }
 
         const matchShotPercentage = matchShots > 0 ? (matchGoals / matchShots) * 100 : 0;
+        const { shotsFor: onIceSF, shotsAgainst: onIceSA } = getOnIceShots(match, playerId);
         const matchRating = calculateRating(
           matchGoals,
           matchAssists,
@@ -702,7 +703,9 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
           matchShots,
           player?.position,
           matchHighRiskShots,
-          matchShotBlocks
+          matchShotBlocks,
+          onIceSF,
+          onIceSA
         );
         totalRating += matchRating;
       });
@@ -899,6 +902,7 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
           }
 
           const player = players.find(p => p.id === playerId);
+          const { shotsFor: onIceSF, shotsAgainst: onIceSA } = getOnIceShots(match, playerId);
           const rating = calculateRating(
             mGoals,
             mAssists,
@@ -912,7 +916,9 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
             mShots,
             player?.position,
             mHighRisk,
-            mShotBlocks
+            mShotBlocks,
+            onIceSF,
+            onIceSA
           );
 
           return {
@@ -1423,6 +1429,37 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
   ]);
 });
 
+function getOnIceShots(match: Match, playerId: string): { shotsFor: number; shotsAgainst: number } {
+  let shotsFor = 0;
+  let shotsAgainst = 0;
+
+  if (!match.lines || !match.shifts || match.shifts.length === 0) {
+    return { shotsFor, shotsAgainst };
+  }
+
+  const playerLineIds = match.lines
+    .filter(l => l.playerIds.includes(playerId))
+    .map(l => l.id);
+
+  if (playerLineIds.length === 0) return { shotsFor, shotsAgainst };
+
+  const playerShifts = match.shifts.filter(s => playerLineIds.includes(s.lineId));
+  if (playerShifts.length === 0) return { shotsFor, shotsAgainst };
+
+  match.shots.forEach(shot => {
+    const duringShift = playerShifts.some(s => {
+      const end = s.endTime ?? Date.now();
+      return shot.timestamp >= s.startTime && shot.timestamp <= end;
+    });
+    if (duringShift) {
+      if (shot.isOurTeam) shotsFor++;
+      else shotsAgainst++;
+    }
+  });
+
+  return { shotsFor, shotsAgainst };
+}
+
 function calculateRating(
   goals: number,
   assists: number,
@@ -1436,7 +1473,9 @@ function calculateRating(
   shots: number,
   position?: string,
   highRiskShots?: number,
-  shotBlocks?: number
+  shotBlocks?: number,
+  onIceShotsFor?: number,
+  onIceShotsAgainst?: number
 ): number {
   if (position === 'goalie') {
     return 6.0;
@@ -1495,6 +1534,18 @@ function calculateRating(
     if (shotBlocks >= 4) rating += 0.6;
     else if (shotBlocks >= 2) rating += 0.3;
     else rating += 0.15;
+  }
+
+  const sf = onIceShotsFor ?? 0;
+  const sa = onIceShotsAgainst ?? 0;
+  const totalOnIce = sf + sa;
+  if (totalOnIce >= 4) {
+    const corsiPct = sf / totalOnIce;
+    if (corsiPct >= 0.65) rating += 0.6;
+    else if (corsiPct >= 0.55) rating += 0.3;
+    else if (corsiPct >= 0.45) rating += 0.0;
+    else if (corsiPct >= 0.35) rating -= 0.3;
+    else rating -= 0.5;
   }
 
   return Math.min(10, Math.max(0, rating));

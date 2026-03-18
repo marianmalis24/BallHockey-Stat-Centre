@@ -2,7 +2,7 @@ import { useHockey } from '@/contexts/hockey-context';
 import { X } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { getRatingColor } from '@/constants/ratingColors';
-import { GameState } from '@/types/hockey';
+import { GameState, Match } from '@/types/hockey';
 import {
   View,
   Text,
@@ -104,6 +104,7 @@ export function MatchStatsModal({ visible, onClose }: MatchStatsModalProps) {
     });
 
     const shotPercentage = shots > 0 ? (goals / shots) * 100 : 0;
+    const { shotsFor: onIceSF, shotsAgainst: onIceSA } = getOnIceShots(activeMatch, playerId);
     const rating = calculateRating(
       goals,
       assists,
@@ -113,7 +114,9 @@ export function MatchStatsModal({ visible, onClose }: MatchStatsModalProps) {
       possessionLosses,
       penaltyMinutes,
       faceoffWins,
-      faceoffLosses
+      faceoffLosses,
+      onIceSF,
+      onIceSA
     );
 
     return {
@@ -359,6 +362,27 @@ export function MatchStatsModal({ visible, onClose }: MatchStatsModalProps) {
   );
 }
 
+function getOnIceShots(match: Match, playerId: string): { shotsFor: number; shotsAgainst: number } {
+  let shotsFor = 0;
+  let shotsAgainst = 0;
+  if (!match.lines || !match.shifts || match.shifts.length === 0) return { shotsFor, shotsAgainst };
+  const playerLineIds = match.lines.filter(l => l.playerIds.includes(playerId)).map(l => l.id);
+  if (playerLineIds.length === 0) return { shotsFor, shotsAgainst };
+  const playerShifts = match.shifts.filter(s => playerLineIds.includes(s.lineId));
+  if (playerShifts.length === 0) return { shotsFor, shotsAgainst };
+  match.shots.forEach(shot => {
+    const duringShift = playerShifts.some(s => {
+      const end = s.endTime ?? Date.now();
+      return shot.timestamp >= s.startTime && shot.timestamp <= end;
+    });
+    if (duringShift) {
+      if (shot.isOurTeam) shotsFor++;
+      else shotsAgainst++;
+    }
+  });
+  return { shotsFor, shotsAgainst };
+}
+
 function calculateRating(
   goals: number,
   assists: number,
@@ -368,7 +392,9 @@ function calculateRating(
   possessionLosses: number,
   penaltyMinutes: number,
   faceoffWins: number,
-  faceoffLosses: number
+  faceoffLosses: number,
+  onIceShotsFor?: number,
+  onIceShotsAgainst?: number
 ): number {
   const offensiveRating = (goals * 2 + assists * 1.5) / Math.max(1, goals + assists) * 2;
   const efficiencyRating = shotPercentage / 10;
@@ -382,13 +408,19 @@ function calculateRating(
   const faceoffTotal = faceoffWins + faceoffLosses;
   const faceoffRating = faceoffTotal > 0 ? (faceoffWins / faceoffTotal) * 10 : 5;
 
+  const sf = onIceShotsFor ?? 0;
+  const sa = onIceShotsAgainst ?? 0;
+  const totalOnIce = sf + sa;
+  const corsiRating = totalOnIce >= 4 ? (sf / totalOnIce) * 10 : 5;
+
   const baseRating =
-    (offensiveRating * 0.3 +
-      efficiencyRating * 0.2 +
+    (offensiveRating * 0.25 +
+      efficiencyRating * 0.15 +
       plusMinusRating * 0.2 +
       possessionRating * 0.1 +
       disciplineRating * 0.1 +
-      faceoffRating * 0.1) *
+      faceoffRating * 0.1 +
+      corsiRating * 0.1) *
     1.0;
 
   const scaledRating = 6.0 + (baseRating / 10) * 4.0;

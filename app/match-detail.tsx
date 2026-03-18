@@ -3,7 +3,7 @@ import { EditGoalModal } from '@/components/EditGoalModal';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Target, Users, Crosshair, Share2, FileText, Edit3 } from 'lucide-react-native';
 import React, { useMemo, useCallback, useState } from 'react';
-import { Goal } from '@/types/hockey';
+import { Goal, Match } from '@/types/hockey';
 import {
   View,
   Text,
@@ -81,6 +81,7 @@ export default function MatchDetailScreen() {
           });
         }
 
+        const { shotsFor: onIceSF, shotsAgainst: onIceSA } = getOnIceShots(match, r.playerId);
         const rating = calculateRating(
           goals,
           assists,
@@ -94,7 +95,9 @@ export default function MatchDetailScreen() {
           shots,
           player.position,
           0,
-          shotBlocks
+          shotBlocks,
+          onIceSF,
+          onIceSA
         );
 
         return {
@@ -526,6 +529,27 @@ export default function MatchDetailScreen() {
   );
 }
 
+function getOnIceShots(match: Match, playerId: string): { shotsFor: number; shotsAgainst: number } {
+  let shotsFor = 0;
+  let shotsAgainst = 0;
+  if (!match.lines || !match.shifts || match.shifts.length === 0) return { shotsFor, shotsAgainst };
+  const playerLineIds = match.lines.filter(l => l.playerIds.includes(playerId)).map(l => l.id);
+  if (playerLineIds.length === 0) return { shotsFor, shotsAgainst };
+  const playerShifts = match.shifts.filter(s => playerLineIds.includes(s.lineId));
+  if (playerShifts.length === 0) return { shotsFor, shotsAgainst };
+  match.shots.forEach(shot => {
+    const duringShift = playerShifts.some(s => {
+      const end = s.endTime ?? Date.now();
+      return shot.timestamp >= s.startTime && shot.timestamp <= end;
+    });
+    if (duringShift) {
+      if (shot.isOurTeam) shotsFor++;
+      else shotsAgainst++;
+    }
+  });
+  return { shotsFor, shotsAgainst };
+}
+
 function calculateRating(
   goals: number,
   assists: number,
@@ -539,7 +563,9 @@ function calculateRating(
   shots: number,
   position: string,
   _highRiskShots?: number,
-  shotBlocks?: number
+  shotBlocks?: number,
+  onIceShotsFor?: number,
+  onIceShotsAgainst?: number
 ): number {
   if (position === 'goalie') {
     return 6.0;
@@ -593,6 +619,18 @@ function calculateRating(
     if (shotBlocks >= 4) rating += 0.6;
     else if (shotBlocks >= 2) rating += 0.3;
     else rating += 0.15;
+  }
+
+  const sf = onIceShotsFor ?? 0;
+  const sa = onIceShotsAgainst ?? 0;
+  const totalOnIce = sf + sa;
+  if (totalOnIce >= 4) {
+    const corsiPct = sf / totalOnIce;
+    if (corsiPct >= 0.65) rating += 0.6;
+    else if (corsiPct >= 0.55) rating += 0.3;
+    else if (corsiPct >= 0.45) rating += 0.0;
+    else if (corsiPct >= 0.35) rating -= 0.3;
+    else rating -= 0.5;
   }
 
   return Math.min(10, Math.max(0, rating));
