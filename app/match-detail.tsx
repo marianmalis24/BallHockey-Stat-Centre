@@ -40,6 +40,8 @@ export default function MatchDetailScreen() {
         let assists = 0;
         let plusMinus = 0;
         let shots = 0;
+        let shotBlocks = 0;
+        let shotsWide = 0;
         let penaltyMinutes = 0;
 
         match.goals.forEach((goal) => {
@@ -50,7 +52,9 @@ export default function MatchDetailScreen() {
         });
 
         match.shots.forEach((shot) => {
-          if (shot.playerId === r.playerId && shot.isOurTeam) shots++;
+          if (shot.playerId === r.playerId && shot.isOurTeam && shot.result !== 'miss') shots++;
+          if (shot.playerId === r.playerId && shot.isOurTeam && shot.result === 'miss') shotsWide++;
+          if (shot.blockedById === r.playerId) shotBlocks++;
         });
 
         match.penalties.forEach((pen) => {
@@ -88,7 +92,9 @@ export default function MatchDetailScreen() {
           faceoffWins,
           faceoffLosses,
           shots,
-          player.position
+          player.position,
+          0,
+          shotBlocks
         );
 
         return {
@@ -98,6 +104,8 @@ export default function MatchDetailScreen() {
           points: goals + assists,
           plusMinus,
           shots,
+          shotBlocks,
+          shotsWide,
           penaltyMinutes,
           rating,
         };
@@ -356,6 +364,8 @@ export default function MatchDetailScreen() {
             <Text style={[styles.tableHeaderText, styles.statCol]}>A</Text>
             <Text style={[styles.tableHeaderText, styles.statCol]}>P</Text>
             <Text style={[styles.tableHeaderText, styles.statCol]}>+/-</Text>
+            <Text style={[styles.tableHeaderText, styles.statCol]}>BLK</Text>
+            <Text style={[styles.tableHeaderText, styles.statCol]}>W</Text>
             <Text style={[styles.tableHeaderText, styles.statCol]}>PIM</Text>
             <Text style={[styles.tableHeaderText, styles.statCol]}>SOG</Text>
             <Text style={[styles.tableHeaderText, styles.ratingCol]}>Rating</Text>
@@ -383,6 +393,8 @@ export default function MatchDetailScreen() {
                 {stat.plusMinus > 0 ? '+' : ''}
                 {stat.plusMinus}
               </Text>
+              <Text style={[styles.statText, styles.statCol]}>{stat.shotBlocks}</Text>
+              <Text style={[styles.statText, styles.statCol]}>{stat.shotsWide}</Text>
               <Text style={[styles.statText, styles.statCol]}>{stat.penaltyMinutes}</Text>
               <Text style={[styles.statText, styles.statCol]}>{stat.shots}</Text>
               <View style={styles.ratingCol}>
@@ -525,7 +537,9 @@ function calculateRating(
   faceoffWins: number,
   faceoffLosses: number,
   shots: number,
-  position: string
+  position: string,
+  _highRiskShots?: number,
+  shotBlocks?: number
 ): number {
   if (position === 'goalie') {
     return 6.0;
@@ -573,6 +587,12 @@ function calculateRating(
     if (faceoffPct >= 60) rating += 0.6;
     else if (faceoffPct >= 55) rating += 0.3;
     else if (faceoffPct < 40) rating -= 0.4;
+  }
+
+  if (shotBlocks && shotBlocks > 0) {
+    if (shotBlocks >= 4) rating += 0.6;
+    else if (shotBlocks >= 2) rating += 0.3;
+    else rating += 0.15;
   }
 
   return Math.min(10, Math.max(0, rating));

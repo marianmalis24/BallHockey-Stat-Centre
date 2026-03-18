@@ -23,6 +23,7 @@ export interface Shot {
   onGoal: boolean;
   result: 'goal' | 'save' | 'miss' | 'blocked';
   goalieId?: string;
+  blockedById?: string;
   period: number;
   shotRisk?: ShotRisk;
   gameState?: GameState;
@@ -137,6 +138,8 @@ export interface PlayerStats {
   shotPercentage: number;
   possessionGains: number;
   possessionLosses: number;
+  shotBlocks: number;
+  shotsWide: number;
   penaltyMinutes: number;
   faceoffWins: number;
   faceoffLosses: number;

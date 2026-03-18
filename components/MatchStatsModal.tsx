@@ -28,6 +28,8 @@ interface PlayerMatchStats {
   faceoffWins: number;
   faceoffLosses: number;
   shots: number;
+  shotBlocks: number;
+  shotsWide: number;
   rating: number;
 }
 
@@ -76,8 +78,13 @@ export function MatchStatsModal({ visible, onClose }: MatchStatsModalProps) {
       if (!goal.isOurTeam && goal.minusPlayers.includes(playerId)) plusMinus--;
     });
 
+    let shotBlocks = 0;
+    let shotsWide = 0;
+
     filteredShots.forEach((shot) => {
-      if (shot.playerId === playerId && shot.isOurTeam) shots++;
+      if (shot.playerId === playerId && shot.isOurTeam && shot.result !== 'miss') shots++;
+      if (shot.playerId === playerId && shot.isOurTeam && shot.result === 'miss') shotsWide++;
+      if (shot.blockedById === playerId) shotBlocks++;
     });
 
     filteredPenalties.forEach((penalty) => {
@@ -120,6 +127,8 @@ export function MatchStatsModal({ visible, onClose }: MatchStatsModalProps) {
       faceoffWins,
       faceoffLosses,
       shots,
+      shotBlocks,
+      shotsWide,
       rating,
     };
   };
@@ -212,8 +221,9 @@ export function MatchStatsModal({ visible, onClose }: MatchStatsModalProps) {
                 <Text style={[styles.tableHeaderCell, styles.statColumn]}>A</Text>
                 <Text style={[styles.tableHeaderCell, styles.statColumn]}>S</Text>
                 <Text style={[styles.tableHeaderCell, styles.statColumn]}>+/-</Text>
+                <Text style={[styles.tableHeaderCell, styles.statColumn]}>BLK</Text>
+                <Text style={[styles.tableHeaderCell, styles.statColumn]}>W</Text>
                 <Text style={[styles.tableHeaderCell, styles.statColumn]}>PIM</Text>
-                <Text style={[styles.tableHeaderCell, styles.statColumn]}>P</Text>
                 <Text style={[styles.tableHeaderCell, styles.statColumn]}>FO</Text>
                 <Text style={[styles.tableHeaderCell, styles.statColumn]}>RAT</Text>
               </View>
@@ -259,10 +269,13 @@ export function MatchStatsModal({ visible, onClose }: MatchStatsModalProps) {
                       {stats.plusMinus}
                     </Text>
                     <Text style={[styles.tableCell, styles.statColumn]}>
-                      {stats.penaltyMinutes}
+                      {stats.shotBlocks}
                     </Text>
                     <Text style={[styles.tableCell, styles.statColumn]}>
-                      {stats.possessionGains}/{stats.possessionLosses}
+                      {stats.shotsWide}
+                    </Text>
+                    <Text style={[styles.tableCell, styles.statColumn]}>
+                      {stats.penaltyMinutes}
                     </Text>
                     <Text style={[styles.tableCell, styles.statColumn, styles.faceoffColumn]}>
                       {faceoffDisplay}
@@ -335,7 +348,7 @@ export function MatchStatsModal({ visible, onClose }: MatchStatsModalProps) {
           <View style={styles.legendSection}>
             <Text style={styles.legendTitle}>Legend</Text>
             <Text style={styles.legendText}>G: Goals • A: Assists • S: Shots • +/-: Plus/Minus</Text>
-            <Text style={styles.legendText}>PIM: Penalty Minutes • P: Possessions (Gains/Losses)</Text>
+            <Text style={styles.legendText}>BLK: Blocked Shots • W: Shots Wide • PIM: Penalty Minutes</Text>
             <Text style={styles.legendText}>FO: Faceoffs (Wins/Total)</Text>
             <Text style={styles.legendText}>SA: Shots Against • SV: Saves • GA: Goals Against</Text>
             <Text style={styles.legendText}>RAT: Rating (0-10 scale, starts at 6.0)</Text>

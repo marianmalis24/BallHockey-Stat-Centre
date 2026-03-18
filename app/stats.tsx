@@ -229,9 +229,15 @@ export default function StatsScreen() {
                          </Text>
                       </View>
                       <View style={styles.statItem}>
-                         <Text style={styles.statLabel}>G/L</Text>
+                         <Text style={styles.statLabel}>BLK</Text>
                          <Text style={styles.statValue}>
-                           {stats.possessionGains}/{stats.possessionLosses}
+                           {stats.shotBlocks}
+                         </Text>
+                      </View>
+                      <View style={styles.statItem}>
+                         <Text style={styles.statLabel}>W</Text>
+                         <Text style={styles.statValue}>
+                           {stats.shotsWide}
                          </Text>
                       </View>
                       <View style={styles.statItem}>

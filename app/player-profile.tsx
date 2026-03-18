@@ -109,6 +109,14 @@ export default function PlayerProfileScreen() {
               <Text style={styles.statLabel}>S%</Text>
             </View>
             <View style={styles.statBox}>
+              <Text style={styles.statValue}>{stats.shotBlocks}</Text>
+              <Text style={styles.statLabel}>BLK</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={styles.statValue}>{stats.shotsWide}</Text>
+              <Text style={styles.statLabel}>W</Text>
+            </View>
+            <View style={styles.statBox}>
               <Text style={styles.statValue}>{stats.penaltyMinutes}</Text>
               <Text style={styles.statLabel}>PIM</Text>
             </View>

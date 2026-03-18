@@ -338,13 +338,19 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         gameState: currentGameState,
       };
 
-      const matchWithUndo = pushUndo(activeMatch, 'shot', shot.isOurTeam ? 'Our Shot' : 'Shot Against');
+      const isBlockedOrWide = shot.result === 'blocked' || shot.result === 'miss';
+
+      let undoDesc = shot.isOurTeam ? 'Our Shot' : 'Shot Against';
+      if (shot.result === 'blocked') undoDesc = 'Shot Blocked';
+      if (shot.result === 'miss') undoDesc = 'Shot Wide';
+
+      const matchWithUndo = pushUndo(activeMatch, 'shot', undoDesc);
 
       const updatedMatch = {
         ...matchWithUndo,
         shots: [...activeMatch.shots, newShot],
-        ourShots: shot.isOurTeam ? activeMatch.ourShots + 1 : activeMatch.ourShots,
-        opponentShots: !shot.isOurTeam
+        ourShots: (shot.isOurTeam && !isBlockedOrWide) ? activeMatch.ourShots + 1 : activeMatch.ourShots,
+        opponentShots: (!shot.isOurTeam && !isBlockedOrWide)
           ? activeMatch.opponentShots + 1
           : activeMatch.opponentShots,
       };
@@ -568,6 +574,8 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
       let assists = 0;
       let plusMinus = 0;
       let shots = 0;
+      let shotBlocks = 0;
+      let shotsWide = 0;
       let possessionGains = 0;
       let possessionLosses = 0;
       let penaltyMinutes = 0;
@@ -587,6 +595,7 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         let matchFaceoffWins = 0;
         let matchFaceoffLosses = 0;
         let matchHighRiskShots = 0;
+        let matchShotBlocks = 0;
 
         match.goals.forEach((goal) => {
           if (goal.scorerId === playerId) {
@@ -621,10 +630,17 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         });
 
         match.shots.forEach((shot) => {
-          if (shot.playerId === playerId && shot.isOurTeam) {
+          if (shot.playerId === playerId && shot.isOurTeam && shot.result !== 'miss') {
             shots++;
             matchShots++;
             if (shot.shotRisk === 'high') matchHighRiskShots++;
+          }
+          if (shot.playerId === playerId && shot.isOurTeam && shot.result === 'miss') {
+            shotsWide++;
+          }
+          if (shot.blockedById === playerId) {
+            shotBlocks++;
+            matchShotBlocks++;
           }
         });
 
@@ -673,7 +689,8 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
           matchFaceoffLosses,
           matchShots,
           player?.position,
-          matchHighRiskShots
+          matchHighRiskShots,
+          matchShotBlocks
         );
         totalRating += matchRating;
       });
@@ -695,6 +712,8 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         shotPercentage,
         possessionGains,
         possessionLosses,
+        shotBlocks,
+        shotsWide,
         penaltyMinutes,
         faceoffWins,
         faceoffLosses,
@@ -812,11 +831,13 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
             if (!goal.isOurTeam && goal.minusPlayers.includes(playerId)) { mPlusMinus--; mWeightedPM -= mw; }
           });
 
+          let mShotBlocks = 0;
           match.shots.forEach((shot) => {
-            if (shot.playerId === playerId && shot.isOurTeam) {
+            if (shot.playerId === playerId && shot.isOurTeam && shot.result !== 'miss') {
               mShots++;
               if (shot.shotRisk === 'high') mHighRisk++;
             }
+            if (shot.blockedById === playerId) mShotBlocks++;
           });
 
           match.penalties.forEach((pen) => {
@@ -856,7 +877,8 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
             foL,
             mShots,
             player?.position,
-            mHighRisk
+            mHighRisk,
+            mShotBlocks
           );
 
           return {
@@ -1194,7 +1216,8 @@ function calculateRating(
   faceoffLosses: number,
   shots: number,
   position?: string,
-  highRiskShots?: number
+  highRiskShots?: number,
+  shotBlocks?: number
 ): number {
   if (position === 'goalie') {
     return 6.0;
@@ -1247,6 +1270,12 @@ function calculateRating(
     if (faceoffPct >= 60) rating += 0.6;
     else if (faceoffPct >= 55) rating += 0.3;
     else if (faceoffPct < 40) rating -= 0.4;
+  }
+
+  if (shotBlocks && shotBlocks > 0) {
+    if (shotBlocks >= 4) rating += 0.6;
+    else if (shotBlocks >= 2) rating += 0.3;
+    else rating += 0.15;
   }
 
   return Math.min(10, Math.max(0, rating));

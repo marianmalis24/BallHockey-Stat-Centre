@@ -49,6 +49,8 @@ export default function GameScreen() {
   const [faceoffType, setFaceoffType] = useState<'win' | 'loss'>('win');
   const [shootoutVisible, setShootoutVisible] = useState(false);
   const [oppShotRiskVisible, setOppShotRiskVisible] = useState(false);
+  const [blockedPlayerPickerVisible, setBlockedPlayerPickerVisible] = useState(false);
+  const [widePlayerPickerVisible, setWidePlayerPickerVisible] = useState(false);
   const [ppshSummary, setPpshSummary] = useState<{ type: GameState | undefined; ourShots: number; oppShots: number; ourGoals: number; oppGoals: number; foWins: number; foLosses: number } | null>(null);
   const ppshOpacity = useRef(new Animated.Value(0)).current;
   const ppshTranslateY = useRef(new Animated.Value(-30)).current;
@@ -80,19 +82,31 @@ export default function GameScreen() {
   }, [addShot]);
 
   const handleShotBlocked = useCallback(() => {
+    setBlockedPlayerPickerVisible(true);
+  }, []);
+
+  const handleBlockedByPlayer = useCallback((playerId: string) => {
     addShot({
-      isOurTeam: true,
+      isOurTeam: false,
       onGoal: false,
       result: 'blocked',
+      blockedById: playerId,
     });
+    setBlockedPlayerPickerVisible(false);
   }, [addShot]);
 
   const handleShotWide = useCallback(() => {
+    setWidePlayerPickerVisible(true);
+  }, []);
+
+  const handleShotWideByPlayer = useCallback((playerId: string) => {
     addShot({
+      playerId,
       isOurTeam: true,
       onGoal: false,
       result: 'miss',
     });
+    setWidePlayerPickerVisible(false);
   }, [addShot]);
 
   const handleFaceoff = useCallback((type: 'win' | 'loss') => {
@@ -637,6 +651,66 @@ export default function GameScreen() {
         </Animated.View>
       )}
 
+      <Modal visible={blockedPlayerPickerVisible} animationType="fade" transparent>
+        <View style={styles.riskOverlay}>
+          <View style={styles.riskModal}>
+            <Text style={styles.riskModalTitle}>Who Blocked the Shot?</Text>
+            <ScrollView style={{ maxHeight: 320 }}>
+              {rosterPlayers
+                .filter((p) => p.position !== 'goalie')
+                .map((player) => (
+                  <TouchableOpacity
+                    key={player.id}
+                    style={styles.playerPickerRow}
+                    onPress={() => handleBlockedByPlayer(player.id)}
+                  >
+                    <View style={styles.playerPickerBadge}>
+                      <Text style={styles.playerPickerNumber}>{player.jerseyNumber}</Text>
+                    </View>
+                    <Text style={styles.playerPickerName}>{player.name}</Text>
+                  </TouchableOpacity>
+                ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.riskCancel}
+              onPress={() => setBlockedPlayerPickerVisible(false)}
+            >
+              <Text style={styles.riskCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={widePlayerPickerVisible} animationType="fade" transparent>
+        <View style={styles.riskOverlay}>
+          <View style={styles.riskModal}>
+            <Text style={styles.riskModalTitle}>Who Shot Wide?</Text>
+            <ScrollView style={{ maxHeight: 320 }}>
+              {rosterPlayers
+                .filter((p) => p.position !== 'goalie')
+                .map((player) => (
+                  <TouchableOpacity
+                    key={player.id}
+                    style={styles.playerPickerRow}
+                    onPress={() => handleShotWideByPlayer(player.id)}
+                  >
+                    <View style={styles.playerPickerBadge}>
+                      <Text style={styles.playerPickerNumber}>{player.jerseyNumber}</Text>
+                    </View>
+                    <Text style={styles.playerPickerName}>{player.name}</Text>
+                  </TouchableOpacity>
+                ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.riskCancel}
+              onPress={() => setWidePlayerPickerVisible(false)}
+            >
+              <Text style={styles.riskCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <Modal visible={oppShotRiskVisible} animationType="fade" transparent>
         <View style={styles.riskOverlay}>
           <View style={styles.riskModal}>
@@ -1072,6 +1146,33 @@ const styles = StyleSheet.create({
     color: '#8e8e93',
     fontSize: 16,
     fontWeight: '500' as const,
+  },
+  playerPickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2c2c2e',
+  },
+  playerPickerBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#007AFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playerPickerNumber: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: '#fff',
+  },
+  playerPickerName: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#fff',
   },
   ppshToast: {
     position: 'absolute',
