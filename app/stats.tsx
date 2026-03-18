@@ -293,6 +293,31 @@ export default function StatsScreen() {
                         </Text>
                       </View>
                     </View>
+                    {stats.saveByRisk && (stats.saveByRisk.low.shots > 0 || stats.saveByRisk.medium.shots > 0 || stats.saveByRisk.high.shots > 0) && (
+                      <View style={styles.riskRow}>
+                        <View style={styles.riskItem}>
+                          <View style={[styles.riskDot, { backgroundColor: '#8e8e93' }]} />
+                          <Text style={styles.riskLabel}>Low</Text>
+                          <Text style={styles.riskValue}>
+                            {stats.saveByRisk.low.shots > 0 ? `${stats.saveByRisk.low.pct.toFixed(0)}%` : '-'}
+                          </Text>
+                        </View>
+                        <View style={styles.riskItem}>
+                          <View style={[styles.riskDot, { backgroundColor: '#FF9500' }]} />
+                          <Text style={styles.riskLabel}>Med</Text>
+                          <Text style={styles.riskValue}>
+                            {stats.saveByRisk.medium.shots > 0 ? `${stats.saveByRisk.medium.pct.toFixed(0)}%` : '-'}
+                          </Text>
+                        </View>
+                        <View style={styles.riskItem}>
+                          <View style={[styles.riskDot, { backgroundColor: '#FF3B30' }]} />
+                          <Text style={styles.riskLabel}>High</Text>
+                          <Text style={styles.riskValue}>
+                            {stats.saveByRisk.high.shots > 0 ? `${stats.saveByRisk.high.pct.toFixed(0)}%` : '-'}
+                          </Text>
+                        </View>
+                      </View>
+                    )}
                   </TouchableOpacity>
                 ))}
               </View>
@@ -594,5 +619,33 @@ const styles = StyleSheet.create({
   sortButtonTextActive: {
     color: '#fff',
     fontWeight: '700' as const,
+  },
+  riskRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#f2f2f7',
+  },
+  riskItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  riskDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  riskLabel: {
+    fontSize: 12,
+    color: '#8e8e93',
+    fontWeight: '500' as const,
+  },
+  riskValue: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: '#1c1c1e',
   },
 });

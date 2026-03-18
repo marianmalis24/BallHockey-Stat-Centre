@@ -13,7 +13,7 @@ import {
 
 export default function PlayerProfileScreen() {
   const { playerId } = useLocalSearchParams<{ playerId: string }>();
-  const { players, calculatePlayerStats, calculatePlayerMatchHistory } = useHockey();
+  const { players, calculatePlayerStats, calculateGoalieStats, calculatePlayerMatchHistory } = useHockey();
 
   const player = players.find((p) => p.id === playerId);
   
@@ -38,6 +38,7 @@ export default function PlayerProfileScreen() {
   }
 
   const stats = calculatePlayerStats(playerId);
+  const goalieStats = player.position === 'goalie' ? calculateGoalieStats(playerId) : null;
   const matchHistory = calculatePlayerMatchHistory(playerId);
 
   return (
@@ -67,6 +68,80 @@ export default function PlayerProfileScreen() {
             <Text style={styles.ratingLabel}>Rating</Text>
           </View>
         </View>
+
+        {goalieStats && (
+          <View style={styles.statsSection}>
+            <Text style={styles.sectionTitle}>Goalie Stats</Text>
+            <View style={styles.statsGrid}>
+              <View style={styles.statBox}>
+                <Text style={styles.statValue}>{goalieStats.gamesPlayed}</Text>
+                <Text style={styles.statLabel}>GP</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statValue}>{goalieStats.shotsAgainst}</Text>
+                <Text style={styles.statLabel}>SA</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statValue}>{goalieStats.saves}</Text>
+                <Text style={styles.statLabel}>SV</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statValue}>{goalieStats.goalsAgainst}</Text>
+                <Text style={styles.statLabel}>GA</Text>
+              </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statValue}>{goalieStats.savePercentage.toFixed(1)}%</Text>
+                <Text style={styles.statLabel}>SV%</Text>
+              </View>
+            </View>
+            {goalieStats.saveByRisk && (goalieStats.saveByRisk.low.shots > 0 || goalieStats.saveByRisk.medium.shots > 0 || goalieStats.saveByRisk.high.shots > 0) && (
+              <View style={styles.riskSection}>
+                <Text style={styles.riskSectionTitle}>Save % by Shot Danger</Text>
+                <View style={styles.riskBars}>
+                  <View style={styles.riskBarItem}>
+                    <View style={styles.riskBarLabelRow}>
+                      <View style={[styles.riskDot, { backgroundColor: '#8e8e93' }]} />
+                      <Text style={styles.riskBarLabel}>Low</Text>
+                    </View>
+                    <View style={styles.riskBarBg}>
+                      <View style={[styles.riskBarFill, { width: `${goalieStats.saveByRisk.low.pct}%`, backgroundColor: '#8e8e93' }]} />
+                    </View>
+                    <Text style={styles.riskBarValue}>
+                      {goalieStats.saveByRisk.low.shots > 0 ? `${goalieStats.saveByRisk.low.pct.toFixed(1)}%` : '-'}
+                    </Text>
+                    <Text style={styles.riskBarSub}>{goalieStats.saveByRisk.low.saves}/{goalieStats.saveByRisk.low.shots}</Text>
+                  </View>
+                  <View style={styles.riskBarItem}>
+                    <View style={styles.riskBarLabelRow}>
+                      <View style={[styles.riskDot, { backgroundColor: '#FF9500' }]} />
+                      <Text style={styles.riskBarLabel}>Medium</Text>
+                    </View>
+                    <View style={styles.riskBarBg}>
+                      <View style={[styles.riskBarFill, { width: `${goalieStats.saveByRisk.medium.pct}%`, backgroundColor: '#FF9500' }]} />
+                    </View>
+                    <Text style={styles.riskBarValue}>
+                      {goalieStats.saveByRisk.medium.shots > 0 ? `${goalieStats.saveByRisk.medium.pct.toFixed(1)}%` : '-'}
+                    </Text>
+                    <Text style={styles.riskBarSub}>{goalieStats.saveByRisk.medium.saves}/{goalieStats.saveByRisk.medium.shots}</Text>
+                  </View>
+                  <View style={styles.riskBarItem}>
+                    <View style={styles.riskBarLabelRow}>
+                      <View style={[styles.riskDot, { backgroundColor: '#FF3B30' }]} />
+                      <Text style={styles.riskBarLabel}>High</Text>
+                    </View>
+                    <View style={styles.riskBarBg}>
+                      <View style={[styles.riskBarFill, { width: `${goalieStats.saveByRisk.high.pct}%`, backgroundColor: '#FF3B30' }]} />
+                    </View>
+                    <Text style={styles.riskBarValue}>
+                      {goalieStats.saveByRisk.high.shots > 0 ? `${goalieStats.saveByRisk.high.pct.toFixed(1)}%` : '-'}
+                    </Text>
+                    <Text style={styles.riskBarSub}>{goalieStats.saveByRisk.high.saves}/{goalieStats.saveByRisk.high.shots}</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
 
         <View style={styles.statsSection}>
           <Text style={styles.sectionTitle}>Career Stats</Text>
@@ -418,5 +493,59 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#8e8e93',
     textAlign: 'center',
+  },
+  riskSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e5ea',
+  },
+  riskSectionTitle: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: '#1c1c1e',
+    marginBottom: 12,
+  },
+  riskBars: {
+    gap: 12,
+  },
+  riskBarItem: {
+    gap: 4,
+  },
+  riskBarLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  riskDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  riskBarLabel: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: '#1c1c1e',
+  },
+  riskBarBg: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#e5e5ea',
+    overflow: 'hidden',
+  },
+  riskBarFill: {
+    height: '100%',
+    borderRadius: 4,
+    minWidth: 2,
+  },
+  riskBarValue: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: '#1c1c1e',
+  },
+  riskBarSub: {
+    fontSize: 12,
+    color: '#8e8e93',
   },
 });

@@ -7,7 +7,9 @@ import { MatchStatsModal } from '@/components/MatchStatsModal';
 import { FaceoffModal } from '@/components/FaceoffModal';
 import { ShootoutModal } from '@/components/ShootoutModal';
 import { Stack, router } from 'expo-router';
-import { Plus, Target, Users, BarChart3, AlertCircle, RefreshCw, Clock, TrendingUp, Shield, History, Zap, ShieldOff, Circle, Undo2, Activity, ShieldBan, CircleOff } from 'lucide-react-native';
+import { Plus, Target, Users, BarChart3, AlertCircle, RefreshCw, Clock, TrendingUp, Shield, History, Zap, ShieldOff, Circle, Undo2, Activity, ShieldBan, CircleOff, GitCompare, PieChart } from 'lucide-react-native';
+import { MomentumIndicator } from '@/components/MomentumIndicator';
+import { LineShiftTracker } from '@/components/LineShiftTracker';
 import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
@@ -298,6 +300,20 @@ export default function GameScreen() {
             <Activity color="#007AFF" size={20} />
             <Text style={styles.secondaryButtonText}>Season Dashboard</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={() => router.push('/player-compare')}
+          >
+            <GitCompare color="#007AFF" size={20} />
+            <Text style={styles.secondaryButtonText}>Compare Players</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={() => router.push('/pp-pk-dashboard')}
+          >
+            <PieChart color="#007AFF" size={20} />
+            <Text style={styles.secondaryButtonText}>PP/PK Dashboard</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -404,6 +420,8 @@ export default function GameScreen() {
           </TouchableOpacity>
         </View>
 
+        <MomentumIndicator match={activeMatch} />
+
         <TouchableOpacity
           style={styles.matchStatsButton}
           onPress={() => setMatchStatsVisible(true)}
@@ -507,6 +525,8 @@ export default function GameScreen() {
             </View>
           </View>
         )}
+
+        <LineShiftTracker />
 
         <View style={styles.rosterSection}>
           <Text style={styles.sectionTitle}>Active Roster</Text>

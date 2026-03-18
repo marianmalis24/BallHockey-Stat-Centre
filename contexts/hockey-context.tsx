@@ -18,6 +18,9 @@ import {
   ShootoutData,
   SeasonStats,
   UndoAction,
+  Line,
+  ShiftEntry,
+  ShotRisk,
 } from '@/types/hockey';
 
 const PLAYERS_KEY = 'hockey_players';
@@ -735,6 +738,12 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
       let goalsAgainst = 0;
       let weightedGoalsAgainst = 0;
 
+      const riskStats: Record<ShotRisk, { shots: number; saves: number }> = {
+        low: { shots: 0, saves: 0 },
+        medium: { shots: 0, saves: 0 },
+        high: { shots: 0, saves: 0 },
+      };
+
       playerMatches.forEach((match) => {
         const hasDetailedStats = match.shots.some(s => s.goalieId) || match.goals.some(g => g.goalieId);
 
@@ -747,7 +756,16 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
           saves += matchShotsSaved;
           shotsAgainst += matchGoalsAgainst + matchShotsSaved;
 
+          match.shots.filter(s => !s.isOurTeam && s.goalieId === playerId && s.result === 'save').forEach((s) => {
+            const risk = s.shotRisk || 'medium';
+            riskStats[risk].shots++;
+            riskStats[risk].saves++;
+          });
+
           matchGoals.forEach((g) => {
+            const risk = g.shotRisk || 'medium';
+            riskStats[risk].shots++;
+
             let weight = 1;
             if (g.gameState === 'sh') weight = 0.5;
             else if (g.gameState === 'pp') weight = 1.3;
@@ -789,6 +807,12 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         rating = rating + savesBonus - goalsAgainstPenalty;
       }
 
+      const saveByRisk = {
+        low: { shots: riskStats.low.shots, saves: riskStats.low.saves, pct: riskStats.low.shots > 0 ? (riskStats.low.saves / riskStats.low.shots) * 100 : 0 },
+        medium: { shots: riskStats.medium.shots, saves: riskStats.medium.saves, pct: riskStats.medium.shots > 0 ? (riskStats.medium.saves / riskStats.medium.shots) * 100 : 0 },
+        high: { shots: riskStats.high.shots, saves: riskStats.high.saves, pct: riskStats.high.shots > 0 ? (riskStats.high.saves / riskStats.high.shots) * 100 : 0 },
+      };
+
       return {
         playerId,
         gamesPlayed: playerMatches.length,
@@ -797,6 +821,7 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         goalsAgainst,
         savePercentage,
         rating: Math.min(10, Math.max(0, rating)),
+        saveByRisk,
       };
     },
     [matches, players]
@@ -1141,6 +1166,179 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
     };
   }, [matches]);
 
+  const setMatchLines = useCallback(
+    (lines: Line[]) => {
+      if (!activeMatch) return;
+      const updatedMatch = { ...activeMatch, lines };
+      const updatedMatches = matches.map((m) =>
+        m.id === activeMatch.id ? updatedMatch : m
+      );
+      void saveMatches(updatedMatches);
+      setActiveMatch(updatedMatch);
+    },
+    [activeMatch, matches]
+  );
+
+  const startShift = useCallback(
+    (lineId: string) => {
+      if (!activeMatch) return;
+      const now = Date.now();
+      const currentShifts = activeMatch.shifts || [];
+      const endedShifts = currentShifts.map((s) =>
+        !s.endTime ? { ...s, endTime: now } : s
+      );
+      const newShift: ShiftEntry = {
+        lineId,
+        startTime: now,
+        period: activeMatch.currentPeriod || 1,
+      };
+      const updatedMatch = {
+        ...activeMatch,
+        shifts: [...endedShifts, newShift],
+        activeLineId: lineId,
+      };
+      const updatedMatches = matches.map((m) =>
+        m.id === activeMatch.id ? updatedMatch : m
+      );
+      void saveMatches(updatedMatches);
+      setActiveMatch(updatedMatch);
+    },
+    [activeMatch, matches]
+  );
+
+  const endShift = useCallback(() => {
+    if (!activeMatch) return;
+    const now = Date.now();
+    const currentShifts = activeMatch.shifts || [];
+    const endedShifts = currentShifts.map((s) =>
+      !s.endTime ? { ...s, endTime: now } : s
+    );
+    const updatedMatch = {
+      ...activeMatch,
+      shifts: endedShifts,
+      activeLineId: undefined,
+    };
+    const updatedMatches = matches.map((m) =>
+      m.id === activeMatch.id ? updatedMatch : m
+    );
+    void saveMatches(updatedMatches);
+    setActiveMatch(updatedMatch);
+  }, [activeMatch, matches]);
+
+  const getLineTOI = useCallback(
+    (lineId: string): number => {
+      if (!activeMatch) return 0;
+      const shifts = activeMatch.shifts || [];
+      const now = Date.now();
+      return shifts
+        .filter((s) => s.lineId === lineId)
+        .reduce((total, s) => total + ((s.endTime || now) - s.startTime), 0);
+    },
+    [activeMatch]
+  );
+
+  const calculatePPPKStats = useCallback(() => {
+    const completed = matches.filter((m) => !m.isActive);
+    const ppData: { matchId: string; date: number; opponent: string; goals: number; opportunities: number; shots: number; faceoffWins: number; faceoffTotal: number }[] = [];
+    const pkData: { matchId: string; date: number; opponent: string; goalsAgainst: number; opportunities: number; shots: number; faceoffWins: number; faceoffTotal: number }[] = [];
+
+    completed.forEach((m) => {
+      const ppGoals = m.goals.filter(g => g.gameState === 'pp' && g.isOurTeam).length;
+      const ppShots = m.shots.filter(s => s.gameState === 'pp' && s.isOurTeam).length;
+      const hasPP = ppGoals > 0 || ppShots > 0 || m.shots.some(s => s.gameState === 'pp');
+
+      const shGA = m.goals.filter(g => g.gameState === 'sh' && !g.isOurTeam).length;
+      const shShots = m.shots.filter(s => s.gameState === 'sh' && !s.isOurTeam).length;
+      const hasSH = shGA > 0 || shShots > 0 || m.shots.some(s => s.gameState === 'sh');
+
+      const ppFO = (m.faceoffs || []).filter(f => f.gameState === 'pp');
+      const ppFOWins = ppFO.filter(f => m.roster.some(r => r.playerId === f.winnerId)).length;
+
+      const shFO = (m.faceoffs || []).filter(f => f.gameState === 'sh');
+      const shFOWins = shFO.filter(f => m.roster.some(r => r.playerId === f.winnerId)).length;
+
+      if (hasPP) {
+        ppData.push({
+          matchId: m.id,
+          date: m.date,
+          opponent: m.opponentName,
+          goals: ppGoals,
+          opportunities: 1,
+          shots: ppShots,
+          faceoffWins: ppFOWins,
+          faceoffTotal: ppFO.length,
+        });
+      }
+      if (hasSH) {
+        pkData.push({
+          matchId: m.id,
+          date: m.date,
+          opponent: m.opponentName,
+          goalsAgainst: shGA,
+          opportunities: 1,
+          shots: shShots,
+          faceoffWins: shFOWins,
+          faceoffTotal: shFO.length,
+        });
+      }
+    });
+
+    const totalPPGoals = ppData.reduce((s, d) => s + d.goals, 0);
+    const totalPPOpp = ppData.length;
+    const totalPKGA = pkData.reduce((s, d) => s + d.goalsAgainst, 0);
+    const totalPKOpp = pkData.length;
+
+    return {
+      pp: {
+        games: ppData,
+        totalGoals: totalPPGoals,
+        totalOpportunities: totalPPOpp,
+        percentage: totalPPOpp > 0 ? (totalPPGoals / totalPPOpp) * 100 : 0,
+      },
+      pk: {
+        games: pkData,
+        totalGoalsAgainst: totalPKGA,
+        totalOpportunities: totalPKOpp,
+        percentage: totalPKOpp > 0 ? ((totalPKOpp - totalPKGA) / totalPKOpp) * 100 : 0,
+      },
+    };
+  }, [matches]);
+
+  const exportSeasonCSV = useCallback((): string => {
+    const completed = matches.filter((m) => !m.isActive);
+    const skaters = players.filter(p => p.position !== 'goalie');
+    const goalies = players.filter(p => p.position === 'goalie');
+
+    let csv = 'SEASON STATS EXPORT\n\n';
+
+    csv += 'MATCH RESULTS\n';
+    csv += 'Date,Opponent,Our Score,Opp Score,Result,Our Shots,Opp Shots,Ended As\n';
+    completed.forEach((m) => {
+      const d = new Date(m.date).toLocaleDateString();
+      const result = m.ourScore > m.opponentScore ? 'W' : m.ourScore < m.opponentScore ? 'L' : 'D';
+      csv += `${d},${m.opponentName},${m.ourScore},${m.opponentScore},${result},${m.ourShots},${m.opponentShots},${m.endedAs || 'regulation'}\n`;
+    });
+
+    csv += '\nPLAYER STATS\n';
+    csv += 'Name,#,Pos,GP,G,A,P,+/-,S,S%,BLK,Wide,PIM,FO%,Rating\n';
+    skaters.forEach((p) => {
+      const s = calculatePlayerStats(p.id);
+      csv += `${p.name},${p.jerseyNumber},${p.position},${s.gamesPlayed},${s.goals},${s.assists},${s.points},${s.plusMinus},${s.shots},${s.shotPercentage.toFixed(1)},${s.shotBlocks},${s.shotsWide},${s.penaltyMinutes},${s.faceoffPercentage.toFixed(1)},${s.rating.toFixed(1)}\n`;
+    });
+
+    csv += '\nGOALIE STATS\n';
+    csv += 'Name,#,GP,SA,SV,GA,SV%,Rating,Low SV%,Med SV%,High SV%\n';
+    goalies.forEach((p) => {
+      const s = calculateGoalieStats(p.id);
+      const lr = s.saveByRisk?.low;
+      const mr = s.saveByRisk?.medium;
+      const hr = s.saveByRisk?.high;
+      csv += `${p.name},${p.jerseyNumber},${s.gamesPlayed},${s.shotsAgainst},${s.saves},${s.goalsAgainst},${s.savePercentage.toFixed(1)},${s.rating.toFixed(1)},${lr ? lr.pct.toFixed(1) : 'N/A'},${mr ? mr.pct.toFixed(1) : 'N/A'},${hr ? hr.pct.toFixed(1) : 'N/A'}\n`;
+    });
+
+    return csv;
+  }, [matches, players, calculatePlayerStats, calculateGoalieStats]);
+
   return useMemo(() => ({
     players,
     matches,
@@ -1171,6 +1369,12 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
     calculatePlayerMatchHistory,
     calculateOpponentStats,
     calculateSeasonStats,
+    setMatchLines,
+    startShift,
+    endShift,
+    getLineTOI,
+    calculatePPPKStats,
+    exportSeasonCSV,
   }), [
     players,
     matches,
@@ -1201,6 +1405,12 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
     calculatePlayerMatchHistory,
     calculateOpponentStats,
     calculateSeasonStats,
+    setMatchLines,
+    startShift,
+    endShift,
+    getLineTOI,
+    calculatePPPKStats,
+    exportSeasonCSV,
   ]);
 });
 

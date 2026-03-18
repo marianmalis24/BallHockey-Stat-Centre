@@ -1,18 +1,57 @@
 import { useHockey } from '@/contexts/hockey-context';
 import { Stack, router } from 'expo-router';
-import { ChevronLeft, TrendingUp, Target, Shield, Zap, Award } from 'lucide-react-native';
-import React, { useMemo } from 'react';
+import { ChevronLeft, TrendingUp, Target, Shield, Zap, Award, Download } from 'lucide-react-native';
+import React, { useMemo, useCallback, useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  Platform,
+  Alert,
 } from 'react-native';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 
 export default function SeasonDashboardScreen() {
-  const { calculateSeasonStats } = useHockey();
+  const { calculateSeasonStats, exportSeasonCSV } = useHockey();
   const stats = useMemo(() => calculateSeasonStats(), [calculateSeasonStats]);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportCSV = useCallback(async () => {
+    setIsExporting(true);
+    try {
+      const csv = exportSeasonCSV();
+      if (Platform.OS === 'web') {
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'season_stats.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+      } else {
+        const file = new File(Paths.cache, 'season_stats.csv');
+        file.write(csv);
+        const fileUri = file.uri;
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (isAvailable) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType: 'text/csv',
+            dialogTitle: 'Export Season Stats',
+          });
+        } else {
+          Alert.alert('Export', 'Sharing is not available on this device');
+        }
+      }
+    } catch (error) {
+      console.error('CSV export error:', error);
+      Alert.alert('Error', 'Failed to export CSV');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [exportSeasonCSV]);
 
   const hasData = stats.gamesPlayed > 0;
 
@@ -36,6 +75,11 @@ export default function SeasonDashboardScreen() {
               <ChevronLeft color="#fff" size={28} />
             </TouchableOpacity>
           ),
+          headerRight: () => hasData ? (
+            <TouchableOpacity onPress={handleExportCSV} style={styles.exportButton} disabled={isExporting}>
+              <Download color="#5ac8fa" size={22} />
+            </TouchableOpacity>
+          ) : null,
         }}
       />
 
@@ -264,6 +308,10 @@ const styles = StyleSheet.create({
   },
   backButton: {
     paddingHorizontal: 8,
+  },
+  exportButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   content: {
     padding: 16,

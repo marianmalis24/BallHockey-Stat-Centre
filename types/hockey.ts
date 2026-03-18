@@ -94,6 +94,20 @@ export interface ShootoutData {
 
 export type ActionType = 'goal' | 'shot' | 'penalty' | 'possession' | 'faceoff';
 
+export interface Line {
+  id: string;
+  name: string;
+  playerIds: string[];
+  type: 'forward' | 'defense';
+}
+
+export interface ShiftEntry {
+  lineId: string;
+  startTime: number;
+  endTime?: number;
+  period: number;
+}
+
 export interface UndoAction {
   type: ActionType;
   description: string;
@@ -125,6 +139,9 @@ export interface Match {
   ppshStartTimestamp?: number;
   notes?: string;
   undoStack?: UndoAction[];
+  lines?: Line[];
+  shifts?: ShiftEntry[];
+  activeLineId?: string;
 }
 
 export interface PlayerStats {
@@ -155,6 +172,11 @@ export interface GoalieStats {
   goalsAgainst: number;
   savePercentage: number;
   rating: number;
+  saveByRisk?: {
+    low: { shots: number; saves: number; pct: number };
+    medium: { shots: number; saves: number; pct: number };
+    high: { shots: number; saves: number; pct: number };
+  };
 }
 
 export interface PlayerMatchHistory {
