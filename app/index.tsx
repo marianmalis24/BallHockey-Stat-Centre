@@ -655,22 +655,19 @@ export default function GameScreen() {
         <View style={styles.riskOverlay}>
           <View style={styles.riskModal}>
             <Text style={styles.riskModalTitle}>Who Blocked the Shot?</Text>
-            <ScrollView style={{ maxHeight: 320 }}>
+            <View style={styles.playerNumberGrid}>
               {rosterPlayers
                 .filter((p) => p.position !== 'goalie')
                 .map((player) => (
                   <TouchableOpacity
                     key={player.id}
-                    style={styles.playerPickerRow}
+                    style={styles.playerNumberBadge}
                     onPress={() => handleBlockedByPlayer(player.id)}
                   >
-                    <View style={styles.playerPickerBadge}>
-                      <Text style={styles.playerPickerNumber}>{player.jerseyNumber}</Text>
-                    </View>
-                    <Text style={styles.playerPickerName}>{player.name}</Text>
+                    <Text style={styles.playerNumberText}>{player.jerseyNumber}</Text>
                   </TouchableOpacity>
                 ))}
-            </ScrollView>
+            </View>
             <TouchableOpacity
               style={styles.riskCancel}
               onPress={() => setBlockedPlayerPickerVisible(false)}
@@ -685,22 +682,19 @@ export default function GameScreen() {
         <View style={styles.riskOverlay}>
           <View style={styles.riskModal}>
             <Text style={styles.riskModalTitle}>Who Shot Wide?</Text>
-            <ScrollView style={{ maxHeight: 320 }}>
+            <View style={styles.playerNumberGrid}>
               {rosterPlayers
                 .filter((p) => p.position !== 'goalie')
                 .map((player) => (
                   <TouchableOpacity
                     key={player.id}
-                    style={styles.playerPickerRow}
+                    style={styles.playerNumberBadge}
                     onPress={() => handleShotWideByPlayer(player.id)}
                   >
-                    <View style={styles.playerPickerBadge}>
-                      <Text style={styles.playerPickerNumber}>{player.jerseyNumber}</Text>
-                    </View>
-                    <Text style={styles.playerPickerName}>{player.name}</Text>
+                    <Text style={styles.playerNumberText}>{player.jerseyNumber}</Text>
                   </TouchableOpacity>
                 ))}
-            </ScrollView>
+            </View>
             <TouchableOpacity
               style={styles.riskCancel}
               onPress={() => setWidePlayerPickerVisible(false)}
@@ -1147,31 +1141,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500' as const,
   },
-  playerPickerRow: {
+  playerNumberGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2c2c2e',
+    flexWrap: 'wrap',
+    gap: 10,
+    justifyContent: 'center',
+    paddingVertical: 8,
   },
-  playerPickerBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  playerNumberBadge: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: '#007AFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  playerPickerNumber: {
-    fontSize: 14,
+  playerNumberText: {
+    fontSize: 18,
     fontWeight: '700' as const,
-    color: '#fff',
-  },
-  playerPickerName: {
-    fontSize: 16,
-    fontWeight: '600' as const,
     color: '#fff',
   },
   ppshToast: {
