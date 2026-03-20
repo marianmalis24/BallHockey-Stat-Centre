@@ -1300,13 +1300,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    paddingVertical: 9,
-    borderRadius: 8,
+    gap: 5,
+    paddingVertical: 13,
+    borderRadius: 10,
   },
   qBtnSecText: {
-    fontSize: 11,
-    fontWeight: '600' as const,
+    fontSize: 13,
+    fontWeight: '700' as const,
     color: '#fff',
   },
   qGoal: {
