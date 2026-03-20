@@ -41,6 +41,7 @@ export interface Goal {
   period: number;
   shotRisk?: ShotRisk;
   gameState?: GameState;
+  isEmptyNet?: boolean;
 }
 
 export interface FaceoffEvent {

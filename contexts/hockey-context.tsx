@@ -275,9 +275,10 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         ...goal,
         id: now.toString(),
         timestamp: now,
-        goalieId: !goal.isOurTeam ? activeMatch.activeGoalieId : undefined,
+        goalieId: (!goal.isOurTeam && !goal.isEmptyNet) ? activeMatch.activeGoalieId : undefined,
         period: activeMatch.currentPeriod || 1,
         gameState: currentGameState,
+        isEmptyNet: goal.isEmptyNet,
       };
 
       const newOurScore = goal.isOurTeam ? activeMatch.ourScore + 1 : activeMatch.ourScore;
@@ -292,7 +293,7 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         isOurTeam: goal.isOurTeam,
         onGoal: true,
         result: 'goal',
-        goalieId: !goal.isOurTeam ? activeMatch.activeGoalieId : undefined,
+        goalieId: (!goal.isOurTeam && !goal.isEmptyNet) ? activeMatch.activeGoalieId : undefined,
         period: activeMatch.currentPeriod || 1,
         shotRisk: goal.shotRisk,
         gameState: currentGameState,
@@ -793,15 +794,17 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
           );
 
           if (goaliesInRoster.length === 1 && goaliesInRoster[0].playerId === playerId) {
-            const opponentShots = match.opponentShots;
-            const opponentGoals = match.opponentScore;
+            const emptyNetGoals = match.goals.filter(g => !g.isOurTeam && g.isEmptyNet).length;
+            const opponentShots = match.opponentShots - emptyNetGoals;
+            const opponentGoals = match.opponentScore - emptyNetGoals;
             shotsAgainst += opponentShots;
             goalsAgainst += opponentGoals;
             saves += opponentShots - opponentGoals;
             weightedGoalsAgainst += opponentGoals;
           } else if (match.activeGoalieId === playerId) {
-            const opponentShots = match.opponentShots;
-            const opponentGoals = match.opponentScore;
+            const emptyNetGoals = match.goals.filter(g => !g.isOurTeam && g.isEmptyNet).length;
+            const opponentShots = match.opponentShots - emptyNetGoals;
+            const opponentGoals = match.opponentScore - emptyNetGoals;
             shotsAgainst += opponentShots;
             goalsAgainst += opponentGoals;
             saves += opponentShots - opponentGoals;

@@ -29,6 +29,7 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
   const [minusPlayers, setMinusPlayers] = useState<string[]>([]);
   const [autoSelectedPlus, setAutoSelectedPlus] = useState<string[]>([]);
   const [shotRisk, setShotRisk] = useState<ShotRisk>('medium');
+  const [isEmptyNet, setIsEmptyNet] = useState(false);
 
   const rosterPlayers = activeMatch
     ? players.filter((p) =>
@@ -44,6 +45,7 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
       setMinusPlayers([]);
       setAutoSelectedPlus([]);
       setShotRisk('medium');
+      setIsEmptyNet(false);
     }
   }, [visible]);
 
@@ -65,6 +67,7 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
       minusPlayers: !isOurTeam ? minusPlayers : [],
       isOurTeam,
       shotRisk,
+      isEmptyNet: !isOurTeam ? isEmptyNet : undefined,
     };
 
     const goalShotId = addGoal(goalData);
@@ -82,6 +85,7 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
     setMinusPlayers([]);
     setAutoSelectedPlus([]);
     setShotRisk('medium');
+    setIsEmptyNet(false);
     onClose();
   };
 
@@ -274,30 +278,45 @@ export function GoalModal({ visible, isOurTeam, onClose, onOpenShotModal }: Goal
           )}
 
           {!isOurTeam && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>- Players on Ice</Text>
-              <View style={styles.playerGrid}>
-                {rosterPlayers.map((player) => (
-                  <TouchableOpacity
-                    key={player.id}
-                    style={[
-                      styles.playerBadge,
-                      minusPlayers.includes(player.id) && styles.playerBadgeSelectedRed,
-                    ]}
-                    onPress={() => toggleMinusPlayer(player.id)}
-                  >
-                    <Text
-                      style={[
-                        styles.playerBadgeNumber,
-                        minusPlayers.includes(player.id) && styles.playerBadgeNumberSelected,
-                      ]}
-                    >
-                      {player.jerseyNumber}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+            <>
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Empty Net?</Text>
+                <TouchableOpacity
+                  style={[styles.emptyNetToggle, isEmptyNet && styles.emptyNetToggleActive]}
+                  onPress={() => setIsEmptyNet(!isEmptyNet)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.emptyNetDot, isEmptyNet && styles.emptyNetDotActive]} />
+                  <Text style={[styles.emptyNetLabel, isEmptyNet && styles.emptyNetLabelActive]}>
+                    {isEmptyNet ? 'Empty Net — won\'t count for goalie stats' : 'Goalie was in net'}
+                  </Text>
+                </TouchableOpacity>
               </View>
-            </View>
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>- Players on Ice</Text>
+                <View style={styles.playerGrid}>
+                  {rosterPlayers.map((player) => (
+                    <TouchableOpacity
+                      key={player.id}
+                      style={[
+                        styles.playerBadge,
+                        minusPlayers.includes(player.id) && styles.playerBadgeSelectedRed,
+                      ]}
+                      onPress={() => toggleMinusPlayer(player.id)}
+                    >
+                      <Text
+                        style={[
+                          styles.playerBadgeNumber,
+                          minusPlayers.includes(player.id) && styles.playerBadgeNumberSelected,
+                        ]}
+                      >
+                        {player.jerseyNumber}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </>
           )}
         </ScrollView>
 
@@ -431,6 +450,42 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: '#fff',
     fontSize: 17,
+    fontWeight: '600' as const,
+  },
+  emptyNetToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#e5e5ea',
+  },
+  emptyNetToggleActive: {
+    backgroundColor: '#FFF3E0',
+    borderColor: '#FF9500',
+  },
+  emptyNetDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#c7c7cc',
+    backgroundColor: '#fff',
+  },
+  emptyNetDotActive: {
+    borderColor: '#FF9500',
+    backgroundColor: '#FF9500',
+  },
+  emptyNetLabel: {
+    fontSize: 15,
+    fontWeight: '500' as const,
+    color: '#8e8e93',
+    flex: 1,
+  },
+  emptyNetLabelActive: {
+    color: '#1c1c1e',
     fontWeight: '600' as const,
   },
 });

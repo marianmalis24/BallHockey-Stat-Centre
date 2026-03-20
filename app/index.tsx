@@ -588,50 +588,50 @@ export default function GameScreen() {
 
       {/* FIXED BOTTOM: Quick Actions */}
       <View style={[styles.fixedBottom, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-        <View style={styles.quickRow}>
-          <TouchableOpacity style={[styles.qBtn, styles.qGoal]} onPress={() => handleAddGoal('our')}>
-            <Plus color="#fff" size={16} />
-            <Text style={styles.qBtnText}>Goal</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.qBtn, styles.qGoalAgainst]} onPress={() => handleAddGoal('opponent')}>
-            <AlertCircle color="#fff" size={16} />
-            <Text style={styles.qBtnText}>GA</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.qBtn, styles.qShot]} onPress={() => handleAddShot('our')}>
-            <Target color="#fff" size={16} />
-            <Text style={styles.qBtnText}>Shot</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.qBtn, styles.qShotAgainst]} onPress={() => handleAddShot('opponent')}>
-            <Target color="#fff" size={16} />
-            <Text style={styles.qBtnText}>SA</Text>
-          </TouchableOpacity>
-        </View>
         {(features.blockedShots || features.wideShots || features.faceoffs) && (
-          <View style={styles.quickRow}>
+          <View style={styles.quickRowSecondary}>
+            {features.faceoffs && (
+              <TouchableOpacity style={[styles.qBtnSec, styles.qFoLoss]} onPress={() => handleFaceoff('loss')}>
+                <Text style={styles.qBtnSecText}>FO Loss</Text>
+              </TouchableOpacity>
+            )}
             {features.blockedShots && (
-              <TouchableOpacity style={[styles.qBtn, styles.qBlocked]} onPress={handleShotBlocked}>
-                <ShieldBan color="#fff" size={16} />
-                <Text style={styles.qBtnText}>Block</Text>
+              <TouchableOpacity style={[styles.qBtnSec, styles.qBlocked]} onPress={handleShotBlocked}>
+                <ShieldBan color="#fff" size={14} />
+                <Text style={styles.qBtnSecText}>Block</Text>
               </TouchableOpacity>
             )}
             {features.wideShots && (
-              <TouchableOpacity style={[styles.qBtn, styles.qWide]} onPress={handleShotWide}>
-                <CircleOff color="#fff" size={16} />
-                <Text style={styles.qBtnText}>Wide</Text>
+              <TouchableOpacity style={[styles.qBtnSec, styles.qWide]} onPress={handleShotWide}>
+                <CircleOff color="#fff" size={14} />
+                <Text style={styles.qBtnSecText}>Wide</Text>
               </TouchableOpacity>
             )}
             {features.faceoffs && (
-              <>
-                <TouchableOpacity style={[styles.qBtn, styles.qFoWin]} onPress={() => handleFaceoff('win')}>
-                  <Text style={styles.qBtnText}>FO Win</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.qBtn, styles.qFoLoss]} onPress={() => handleFaceoff('loss')}>
-                  <Text style={styles.qBtnText}>FO Loss</Text>
-                </TouchableOpacity>
-              </>
+              <TouchableOpacity style={[styles.qBtnSec, styles.qFoWin]} onPress={() => handleFaceoff('win')}>
+                <Text style={styles.qBtnSecText}>FO Win</Text>
+              </TouchableOpacity>
             )}
           </View>
         )}
+        <View style={styles.quickRowMain}>
+          <TouchableOpacity style={[styles.qBtnMain, styles.qGoalAgainst]} onPress={() => handleAddGoal('opponent')}>
+            <AlertCircle color="#fff" size={20} />
+            <Text style={styles.qBtnMainText}>Goal Against</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.qBtnMain, styles.qShotAgainst]} onPress={() => handleAddShot('opponent')}>
+            <Target color="#fff" size={20} />
+            <Text style={styles.qBtnMainText}>Shot Against</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.qBtnMain, styles.qShot]} onPress={() => handleAddShot('our')}>
+            <Target color="#fff" size={20} />
+            <Text style={styles.qBtnMainText}>Our Shot</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.qBtnMain, styles.qGoal]} onPress={() => handleAddGoal('our')}>
+            <Plus color="#fff" size={20} />
+            <Text style={styles.qBtnMainText}>Our Goal</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <GoalModal
@@ -1272,23 +1272,41 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#1a1e32',
   },
-  quickRow: {
+  quickRowMain: {
     flexDirection: 'row',
     gap: 7,
+  },
+  quickRowSecondary: {
+    flexDirection: 'row',
+    gap: 6,
     marginBottom: 7,
   },
-  qBtn: {
+  qBtnMain: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 16,
+    borderRadius: 12,
+  },
+  qBtnMainText: {
+    fontSize: 11,
+    fontWeight: '700' as const,
+    color: '#fff',
+    letterSpacing: 0.2,
+  },
+  qBtnSec: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
-    paddingVertical: 11,
-    borderRadius: 10,
+    gap: 4,
+    paddingVertical: 9,
+    borderRadius: 8,
   },
-  qBtnText: {
-    fontSize: 12,
-    fontWeight: '700' as const,
+  qBtnSecText: {
+    fontSize: 11,
+    fontWeight: '600' as const,
     color: '#fff',
   },
   qGoal: {
