@@ -7,11 +7,11 @@ import { MatchStatsModal } from '@/components/MatchStatsModal';
 import { FaceoffModal } from '@/components/FaceoffModal';
 import { ShootoutModal } from '@/components/ShootoutModal';
 import { Stack, router } from 'expo-router';
-import { Plus, Target, Users, BarChart3, AlertCircle, RefreshCw, TrendingUp, Shield, History, Zap, ShieldOff, Undo2, Activity, ShieldBan, CircleOff, GitCompare, PieChart, ChevronDown, ChevronUp, Settings } from 'lucide-react-native';
+import { Plus, Target, Users, BarChart3, AlertCircle, RefreshCw, TrendingUp, Shield, History, Zap, ShieldOff, Undo2, Activity, ShieldBan, CircleOff, GitCompare, PieChart, ChevronDown, ChevronUp, Settings, Trophy, ChevronRight, Clock } from 'lucide-react-native';
 import { MomentumIndicator } from '@/components/MomentumIndicator';
 import { LineShiftTracker } from '@/components/LineShiftTracker';
 import { useMatchFeatures } from '@/contexts/match-features-context';
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -34,23 +34,25 @@ interface NavItem {
   route: string;
   color: string;
   bgColor: string;
+  description: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Players', icon: <Users color="#5ac8fa" size={22} />, route: '/players', color: '#5ac8fa', bgColor: 'rgba(90,200,250,0.12)' },
-  { label: 'Statistics', icon: <BarChart3 color="#34C759" size={22} />, route: '/stats', color: '#34C759', bgColor: 'rgba(52,199,89,0.12)' },
-  { label: 'Opponents', icon: <Shield color="#FF9500" size={22} />, route: '/opponents', color: '#FF9500', bgColor: 'rgba(255,149,0,0.12)' },
-  { label: 'Match History', icon: <History color="#AF52DE" size={22} />, route: '/match-history', color: '#AF52DE', bgColor: 'rgba(175,82,222,0.12)' },
-  { label: 'Season', icon: <Activity color="#FF2D55" size={22} />, route: '/season-dashboard', color: '#FF2D55', bgColor: 'rgba(255,45,85,0.12)' },
-  { label: 'Compare', icon: <GitCompare color="#5856D6" size={22} />, route: '/player-compare', color: '#5856D6', bgColor: 'rgba(88,86,214,0.12)' },
-  { label: 'PP/PK', icon: <PieChart color="#FF6B6B" size={22} />, route: '/pp-pk-dashboard', color: '#FF6B6B', bgColor: 'rgba(255,107,107,0.12)' },
-  { label: 'Features', icon: <Settings color="#8e8e93" size={22} />, route: '/match-features', color: '#8e8e93', bgColor: 'rgba(142,142,147,0.12)' },
+  { label: 'Players', icon: <Users color="#5ac8fa" size={20} />, route: '/players', color: '#5ac8fa', bgColor: 'rgba(90,200,250,0.10)', description: 'Manage roster' },
+  { label: 'Statistics', icon: <BarChart3 color="#4cd964" size={20} />, route: '/stats', color: '#4cd964', bgColor: 'rgba(76,217,100,0.10)', description: 'Player stats' },
+  { label: 'Opponents', icon: <Shield color="#ffcc00" size={20} />, route: '/opponents', color: '#ffcc00', bgColor: 'rgba(255,204,0,0.10)', description: 'Track rivals' },
+  { label: 'History', icon: <History color="#bf5af2" size={20} />, route: '/match-history', color: '#bf5af2', bgColor: 'rgba(191,90,242,0.10)', description: 'Past games' },
+  { label: 'Season', icon: <Activity color="#ff375f" size={20} />, route: '/season-dashboard', color: '#ff375f', bgColor: 'rgba(255,55,95,0.10)', description: 'Season overview' },
+  { label: 'Compare', icon: <GitCompare color="#64d2ff" size={20} />, route: '/player-compare', color: '#64d2ff', bgColor: 'rgba(100,210,255,0.10)', description: 'Head to head' },
+  { label: 'PP/PK', icon: <PieChart color="#ff6961" size={20} />, route: '/pp-pk-dashboard', color: '#ff6961', bgColor: 'rgba(255,105,97,0.10)', description: 'Special teams' },
+  { label: 'Settings', icon: <Settings color="#98989d" size={20} />, route: '/match-features', color: '#98989d', bgColor: 'rgba(152,152,157,0.10)', description: 'Configure' },
 ];
 
 export default function GameScreen() {
   const {
     activeMatch,
     players,
+    matches,
     endMatch,
     updateActiveMatch,
     addShot,
@@ -287,38 +289,145 @@ export default function GameScreen() {
     }
   }, [activeMatch, players, updateActiveMatch]);
 
+  const completedMatches = useMemo(() => matches.filter(m => !m.isActive), [matches]);
+  const lastMatch = useMemo(() => {
+    const sorted = [...completedMatches].sort((a, b) => b.date - a.date);
+    return sorted[0] ?? null;
+  }, [completedMatches]);
+
+  const seasonRecord = useMemo(() => {
+    let w = 0, l = 0, d = 0;
+    completedMatches.forEach(m => {
+      if (m.ourScore > m.opponentScore) w++;
+      else if (m.ourScore < m.opponentScore) l++;
+      else d++;
+    });
+    return { w, l, d };
+  }, [completedMatches]);
+
   if (!activeMatch) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <Stack.Screen options={{ headerShown: false }} />
-        <View style={styles.homeHeader}>
-          <Text style={styles.homeTitle}>Hockey Tracker</Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.bigStartButton}
-          onPress={() => router.push('/match-setup')}
-          activeOpacity={0.8}
+        <ScrollView
+          style={styles.homeScroll}
+          contentContainerStyle={styles.homeScrollContent}
+          showsVerticalScrollIndicator={false}
         >
-          <View style={styles.bigStartInner}>
-            <Plus color="#fff" size={28} />
-            <Text style={styles.bigStartText}>Start New Match</Text>
+          <View style={styles.homeHeader}>
+            <View style={styles.homeBrand}>
+              <View style={styles.homeLogo}>
+                <Target color="#0af" size={22} />
+              </View>
+              <View>
+                <Text style={styles.homeTitle}>Hockey Tracker</Text>
+                <Text style={styles.homeSubtitle}>
+                  {completedMatches.length > 0
+                    ? `${completedMatches.length} game${completedMatches.length !== 1 ? 's' : ''} tracked`
+                    : 'Ready to track'}
+                </Text>
+              </View>
+            </View>
           </View>
-        </TouchableOpacity>
 
-        <View style={styles.navGrid}>
-          {NAV_ITEMS.map((item) => (
+          <TouchableOpacity
+            style={styles.bigStartButton}
+            onPress={() => router.push('/match-setup')}
+            activeOpacity={0.85}
+            testID="start-match-btn"
+          >
+            <View style={styles.bigStartInner}>
+              <View style={styles.bigStartIconWrap}>
+                <Plus color="#fff" size={22} />
+              </View>
+              <View style={styles.bigStartTextWrap}>
+                <Text style={styles.bigStartText}>Start New Match</Text>
+                <Text style={styles.bigStartHint}>Set up roster & opponent</Text>
+              </View>
+              <ChevronRight color="rgba(255,255,255,0.5)" size={20} />
+            </View>
+          </TouchableOpacity>
+
+          {completedMatches.length > 0 && (
+            <View style={styles.quickStatsRow}>
+              <View style={styles.quickStatCard}>
+                <Trophy color="#4cd964" size={16} />
+                <Text style={styles.quickStatValue}>{seasonRecord.w}</Text>
+                <Text style={styles.quickStatLabel}>Wins</Text>
+              </View>
+              <View style={styles.quickStatCard}>
+                <ShieldOff color="#ff375f" size={16} />
+                <Text style={styles.quickStatValue}>{seasonRecord.l}</Text>
+                <Text style={styles.quickStatLabel}>Losses</Text>
+              </View>
+              <View style={styles.quickStatCard}>
+                <Activity color="#ffcc00" size={16} />
+                <Text style={styles.quickStatValue}>{seasonRecord.d}</Text>
+                <Text style={styles.quickStatLabel}>Draws</Text>
+              </View>
+              <View style={styles.quickStatCard}>
+                <Users color="#5ac8fa" size={16} />
+                <Text style={styles.quickStatValue}>{players.length}</Text>
+                <Text style={styles.quickStatLabel}>Players</Text>
+              </View>
+            </View>
+          )}
+
+          {lastMatch && (
             <TouchableOpacity
-              key={item.route}
-              style={[styles.navCard, { backgroundColor: item.bgColor }]}
-              onPress={() => router.push(item.route as never)}
+              style={styles.lastMatchCard}
+              onPress={() => router.push({ pathname: '/match-detail', params: { matchId: lastMatch.id } } as never)}
               activeOpacity={0.7}
             >
-              <View style={styles.navCardIcon}>{item.icon}</View>
-              <Text style={[styles.navCardLabel, { color: item.color }]}>{item.label}</Text>
+              <View style={styles.lastMatchHeader}>
+                <Clock color="#636366" size={13} />
+                <Text style={styles.lastMatchLabel}>Last Match</Text>
+              </View>
+              <View style={styles.lastMatchBody}>
+                <View style={styles.lastMatchScoreWrap}>
+                  <Text style={[
+                    styles.lastMatchScore,
+                    lastMatch.ourScore > lastMatch.opponentScore
+                      ? styles.lastMatchWin
+                      : lastMatch.ourScore < lastMatch.opponentScore
+                        ? styles.lastMatchLoss
+                        : styles.lastMatchDraw,
+                  ]}>
+                    {lastMatch.ourScore} - {lastMatch.opponentScore}
+                  </Text>
+                  <Text style={styles.lastMatchResult}>
+                    {lastMatch.ourScore > lastMatch.opponentScore ? 'W' : lastMatch.ourScore < lastMatch.opponentScore ? 'L' : 'D'}
+                  </Text>
+                </View>
+                <Text style={styles.lastMatchOpponent} numberOfLines={1}>vs {lastMatch.opponentName}</Text>
+              </View>
+              <ChevronRight color="#3a3a3c" size={18} />
             </TouchableOpacity>
-          ))}
-        </View>
+          )}
+
+          <Text style={styles.sectionTitle}>Quick Access</Text>
+          <View style={styles.navGrid}>
+            {NAV_ITEMS.map((item) => (
+              <TouchableOpacity
+                key={item.route}
+                style={styles.navCard}
+                onPress={() => router.push(item.route as never)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.navCardIcon, { backgroundColor: item.bgColor }]}>
+                  {item.icon}
+                </View>
+                <View style={styles.navCardText}>
+                  <Text style={styles.navCardLabel}>{item.label}</Text>
+                  <Text style={styles.navCardDesc}>{item.description}</Text>
+                </View>
+                <ChevronRight color="#2c2c2e" size={16} />
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={{ height: Math.max(insets.bottom, 20) }} />
+        </ScrollView>
       </View>
     );
   }
@@ -738,73 +847,223 @@ const styles = StyleSheet.create({
     backgroundColor: '#0a0e1a',
   },
 
-  // ===== HOME (no match) =====
+  homeScroll: {
+    flex: 1,
+  },
+  homeScrollContent: {
+    paddingBottom: 8,
+  },
   homeHeader: {
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingTop: 12,
+    paddingBottom: 20,
+  },
+  homeBrand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  homeLogo: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,170,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   homeTitle: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: '800' as const,
-    color: '#fff',
-    letterSpacing: -0.5,
+    color: '#e8eaed',
+    letterSpacing: -0.3,
+  },
+  homeSubtitle: {
+    fontSize: 13,
+    fontWeight: '500' as const,
+    color: '#636366',
+    marginTop: 1,
   },
   bigStartButton: {
     marginHorizontal: 16,
-    marginBottom: 24,
+    marginBottom: 16,
     borderRadius: 16,
+    backgroundColor: '#14532d',
+    borderWidth: 1,
+    borderColor: 'rgba(76,217,100,0.25)',
     overflow: 'hidden',
   },
   bigStartInner: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 18,
+    gap: 14,
+  },
+  bigStartIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#4cd964',
+    alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 20,
-    backgroundColor: '#34C759',
-    borderRadius: 16,
+  },
+  bigStartTextWrap: {
+    flex: 1,
   },
   bigStartText: {
-    color: '#fff',
-    fontSize: 19,
+    color: '#e8eaed',
+    fontSize: 17,
     fontWeight: '700' as const,
   },
-  navGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 16,
-    gap: 12,
+  bigStartHint: {
+    color: '#4cd964',
+    fontSize: 12,
+    fontWeight: '500' as const,
+    marginTop: 2,
   },
-  navCard: {
-    width: (SCREEN_WIDTH - 32 - 24) / 3,
-    borderRadius: 14,
-    paddingVertical: 20,
+  quickStatsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    gap: 8,
+    marginBottom: 16,
+  },
+  quickStatCard: {
+    flex: 1,
+    backgroundColor: '#12162a',
+    borderRadius: 12,
+    paddingVertical: 14,
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: '#1a1e32',
+  },
+  quickStatValue: {
+    fontSize: 20,
+    fontWeight: '800' as const,
+    color: '#e8eaed',
+  },
+  quickStatLabel: {
+    fontSize: 10,
+    fontWeight: '600' as const,
+    color: '#636366',
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.5,
+  },
+  lastMatchCard: {
+    marginHorizontal: 16,
+    marginBottom: 20,
+    borderRadius: 14,
+    backgroundColor: '#12162a',
+    borderWidth: 1,
+    borderColor: '#1a1e32',
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  lastMatchHeader: {
+    position: 'absolute',
+    top: -8,
+    left: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#0a0e1a',
+    paddingHorizontal: 6,
+  },
+  lastMatchLabel: {
+    fontSize: 10,
+    fontWeight: '600' as const,
+    color: '#636366',
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.5,
+  },
+  lastMatchBody: {
+    flex: 1,
+    marginTop: 4,
+  },
+  lastMatchScoreWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
+  lastMatchScore: {
+    fontSize: 24,
+    fontWeight: '800' as const,
+  },
+  lastMatchWin: {
+    color: '#4cd964',
+  },
+  lastMatchLoss: {
+    color: '#ff375f',
+  },
+  lastMatchDraw: {
+    color: '#ffcc00',
+  },
+  lastMatchResult: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    color: '#636366',
+    backgroundColor: '#1a1e32',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  lastMatchOpponent: {
+    fontSize: 13,
+    fontWeight: '500' as const,
+    color: '#8e8e93',
+    marginTop: 2,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    color: '#4a4a4e',
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.8,
+    paddingHorizontal: 20,
+    marginBottom: 10,
+  },
+  navGrid: {
+    paddingHorizontal: 16,
+    gap: 2,
+  },
+  navCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    gap: 12,
+  },
   navCardIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  navCardText: {
+    flex: 1,
+  },
   navCardLabel: {
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: '600' as const,
-    textAlign: 'center' as const,
+    color: '#e8eaed',
+  },
+  navCardDesc: {
+    fontSize: 12,
+    fontWeight: '400' as const,
+    color: '#636366',
+    marginTop: 1,
   },
 
-  // ===== MATCH: Fixed top =====
   fixedTop: {
     backgroundColor: '#0a0e1a',
     paddingHorizontal: 12,
-    paddingBottom: 6,
+    paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#1c1c1e',
+    borderBottomColor: '#1a1e32',
   },
   topRow: {
     flexDirection: 'row',
@@ -812,7 +1071,9 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   topIconBtn: {
-    padding: 6,
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   compactScore: {
     flex: 1,
@@ -822,44 +1083,47 @@ const styles = StyleSheet.create({
   },
   scoreTeam: {
     alignItems: 'center',
-    width: 60,
+    width: 64,
   },
   scoreTeamLabel: {
     fontSize: 10,
     fontWeight: '700' as const,
-    color: '#636366',
-    letterSpacing: 1,
+    color: '#4a4a4e',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase' as const,
   },
   scoreBig: {
-    fontSize: 36,
+    fontSize: 38,
     fontWeight: '800' as const,
-    color: '#fff',
-    lineHeight: 40,
+    color: '#e8eaed',
+    lineHeight: 42,
   },
   scoreShotCount: {
     fontSize: 11,
-    color: '#8e8e93',
+    color: '#636366',
     fontWeight: '600' as const,
   },
   scoreMid: {
     alignItems: 'center',
-    paddingHorizontal: 12,
-    gap: 2,
+    paddingHorizontal: 14,
+    gap: 3,
   },
   opponentName: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600' as const,
-    color: '#8e8e93',
+    color: '#636366',
     maxWidth: 120,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.5,
   },
   periodBadgeText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800' as const,
-    color: '#5ac8fa',
+    color: '#0af',
   },
   foText: {
     fontSize: 10,
-    color: '#5ac8fa',
+    color: '#0af',
     fontWeight: '600' as const,
   },
 
@@ -872,24 +1136,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
     borderRadius: 8,
-    backgroundColor: '#1c1c1e',
+    backgroundColor: '#12162a',
+    borderWidth: 1,
+    borderColor: '#1a1e32',
   },
   gsChipActiveEven: {
-    backgroundColor: '#3a3a3c',
+    backgroundColor: '#2c2c3a',
+    borderColor: '#3a3a4a',
   },
   gsChipActivePP: {
     backgroundColor: '#FF9500',
+    borderColor: '#FF9500',
   },
   gsChipActiveSH: {
     backgroundColor: '#FF3B30',
+    borderColor: '#FF3B30',
   },
   gsChipText: {
     fontSize: 12,
     fontWeight: '700' as const,
-    color: '#636366',
+    color: '#4a4a4e',
   },
   gsChipTextActive: {
     color: '#fff',
@@ -901,34 +1170,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingVertical: 5,
-    paddingHorizontal: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     borderRadius: 8,
-    backgroundColor: 'rgba(52,199,89,0.15)',
+    backgroundColor: 'rgba(76,217,100,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(76,217,100,0.2)',
   },
   goalieChipText: {
     fontSize: 12,
     fontWeight: '700' as const,
-    color: '#34C759',
+    color: '#4cd964',
   },
   endPeriodChip: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: 'rgba(255,59,48,0.15)',
+    backgroundColor: 'rgba(255,55,95,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,55,95,0.2)',
   },
   endPeriodText: {
     fontSize: 12,
     fontWeight: '700' as const,
-    color: '#FF3B30',
+    color: '#ff375f',
   },
 
-  // ===== MATCH: Scrollable middle =====
   middleScroll: {
     flex: 1,
   },
   middleContent: {
-    paddingTop: 8,
+    paddingTop: 10,
     paddingBottom: 8,
   },
 
@@ -937,11 +1209,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 11,
     paddingHorizontal: 14,
-    backgroundColor: '#1c1c1e',
+    backgroundColor: '#12162a',
     borderRadius: 10,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#1a1e32',
   },
   expandToggleText: {
     fontSize: 14,
@@ -957,20 +1231,22 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   rosterCard: {
-    backgroundColor: '#1c1c1e',
+    backgroundColor: '#12162a',
     borderRadius: 10,
-    padding: 8,
+    padding: 10,
     alignItems: 'center',
     width: CARD_WIDTH,
+    borderWidth: 1,
+    borderColor: '#1a1e32',
   },
   rosterBadge: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: '#007AFF',
+    borderRadius: 10,
+    backgroundColor: '#0a84ff',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 5,
   },
   rosterNumber: {
     fontSize: 15,
@@ -980,35 +1256,34 @@ const styles = StyleSheet.create({
   rosterName: {
     fontSize: 10,
     fontWeight: '500' as const,
-    color: '#fff',
+    color: '#e8eaed',
     marginBottom: 1,
     textAlign: 'center' as const,
   },
   rosterPosition: {
     fontSize: 9,
-    color: '#8e8e93',
+    color: '#636366',
   },
 
-  // ===== MATCH: Fixed bottom quick actions =====
   fixedBottom: {
     backgroundColor: '#0a0e1a',
-    paddingHorizontal: 8,
-    paddingTop: 6,
+    paddingHorizontal: 10,
+    paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#1c1c1e',
+    borderTopColor: '#1a1e32',
   },
   quickRow: {
     flexDirection: 'row',
-    gap: 6,
-    marginBottom: 6,
+    gap: 7,
+    marginBottom: 7,
   },
   qBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    paddingVertical: 10,
+    gap: 5,
+    paddingVertical: 11,
     borderRadius: 10,
   },
   qBtnText: {
@@ -1017,49 +1292,50 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   qGoal: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#248a3d',
   },
   qGoalAgainst: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#d70015',
   },
   qShot: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#0a84ff',
   },
   qShotAgainst: {
-    backgroundColor: '#FF9500',
+    backgroundColor: '#ff9f0a',
   },
   qBlocked: {
     backgroundColor: '#5856D6',
   },
   qWide: {
-    backgroundColor: '#636366',
+    backgroundColor: '#48484a',
   },
   qFoWin: {
-    backgroundColor: '#2d6a4f',
+    backgroundColor: '#1b4332',
   },
   qFoLoss: {
-    backgroundColor: '#6c3d1a',
+    backgroundColor: '#5c2d0e',
   },
 
-  // ===== Modals =====
   riskOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: 28,
   },
   riskModal: {
-    backgroundColor: '#1c1c1e',
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: '#1c1c2e',
+    borderRadius: 20,
+    padding: 22,
     width: '100%',
     gap: 10,
+    borderWidth: 1,
+    borderColor: '#2a2a3e',
   },
   riskModalTitle: {
     fontSize: 18,
     fontWeight: '700' as const,
-    color: '#fff',
+    color: '#e8eaed',
     textAlign: 'center' as const,
     marginBottom: 8,
   },
@@ -1093,8 +1369,8 @@ const styles = StyleSheet.create({
   playerNumberBadge: {
     width: 52,
     height: 52,
-    borderRadius: 26,
-    backgroundColor: '#007AFF',
+    borderRadius: 14,
+    backgroundColor: '#0a84ff',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1104,7 +1380,6 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
 
-  // ===== PP/SH Toast =====
   ppshToast: {
     position: 'absolute',
     top: 110,
@@ -1113,23 +1388,23 @@ const styles = StyleSheet.create({
     zIndex: 999,
   },
   ppshToastInner: {
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 10,
   },
   ppshToastPP: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#12162a',
     borderWidth: 1,
-    borderColor: 'rgba(255,149,0,0.4)',
+    borderColor: 'rgba(255,149,0,0.35)',
   },
   ppshToastSH: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#12162a',
     borderWidth: 1,
-    borderColor: 'rgba(255,59,48,0.4)',
+    borderColor: 'rgba(255,59,48,0.35)',
   },
   ppshToastHeader: {
     flexDirection: 'row',
