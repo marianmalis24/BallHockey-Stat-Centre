@@ -1,22 +1,29 @@
 import { useHockey } from '@/contexts/hockey-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft } from 'lucide-react-native';
-import React from 'react';
+import { ChevronLeft, TrendingUp, Shield, Zap } from 'lucide-react-native';
+import React, { useMemo } from 'react';
 import { getRatingColor } from '@/constants/ratingColors';
+import Svg, { Polyline, Circle, Line, Text as SvgText } from 'react-native-svg';
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  Dimensions,
 } from 'react-native';
+
+const CHART_WIDTH = Dimensions.get('window').width - 72;
+const CHART_HEIGHT = 100;
+const CHART_PAD_X = 24;
+const CHART_PAD_Y = 16;
 
 export default function PlayerProfileScreen() {
   const { playerId } = useLocalSearchParams<{ playerId: string }>();
-  const { players, calculatePlayerStats, calculateGoalieStats, calculatePlayerMatchHistory } = useHockey();
+  const { players, matches, calculatePlayerStats, calculateGoalieStats, calculatePlayerMatchHistory } = useHockey();
 
   const player = players.find((p) => p.id === playerId);
-  
+
   if (!player) {
     return (
       <View style={styles.container}>
@@ -40,6 +47,210 @@ export default function PlayerProfileScreen() {
   const stats = calculatePlayerStats(playerId);
   const goalieStats = player.position === 'goalie' ? calculateGoalieStats(playerId) : null;
   const matchHistory = calculatePlayerMatchHistory(playerId);
+
+  const ratingTrend = useMemo(() => {
+    return [...matchHistory].reverse().map(m => m.rating);
+  }, [matchHistory]);
+
+  const goalieBreakdown = useMemo(() => {
+    if (player.position !== 'goalie') return null;
+
+    const completed = matches.filter(m => !m.isActive && m.roster.some(r => r.playerId === playerId));
+    const byPeriod: { period: number; shots: number; saves: number; pct: number }[] = [];
+    const byState: Record<string, { shots: number; saves: number }> = {
+      even: { shots: 0, saves: 0 },
+      pp: { shots: 0, saves: 0 },
+      sh: { shots: 0, saves: 0 },
+    };
+
+    const periodMap = new Map<number, { shots: number; saves: number }>();
+
+    completed.forEach(m => {
+      m.shots.filter(s => !s.isOurTeam && s.goalieId === playerId).forEach(s => {
+        const period = s.period || 1;
+        const existing = periodMap.get(period) || { shots: 0, saves: 0 };
+        existing.shots++;
+        if (s.result === 'save') existing.saves++;
+        periodMap.set(period, existing);
+
+        const gs = s.gameState || 'even';
+        if (byState[gs]) {
+          byState[gs].shots++;
+          if (s.result === 'save') byState[gs].saves++;
+        }
+      });
+
+      m.goals.filter(g => !g.isOurTeam && g.goalieId === playerId && !g.isEmptyNet).forEach(g => {
+        const period = g.period || 1;
+        const existing = periodMap.get(period) || { shots: 0, saves: 0 };
+        existing.shots++;
+        periodMap.set(period, existing);
+
+        const gs = g.gameState || 'even';
+        if (byState[gs]) {
+          byState[gs].shots++;
+        }
+      });
+    });
+
+    for (const [period, data] of periodMap) {
+      if (period <= 3) {
+        byPeriod.push({
+          period,
+          shots: data.shots,
+          saves: data.saves,
+          pct: data.shots > 0 ? (data.saves / data.shots) * 100 : 0,
+        });
+      }
+    }
+
+    for (let p = 1; p <= 3; p++) {
+      if (!byPeriod.find(bp => bp.period === p)) {
+        byPeriod.push({ period: p, shots: 0, saves: 0, pct: 0 });
+      }
+    }
+    byPeriod.sort((a, b) => a.period - b.period);
+
+    const stateResult = Object.entries(byState).map(([state, data]) => ({
+      state,
+      shots: data.shots,
+      saves: data.saves,
+      pct: data.shots > 0 ? (data.saves / data.shots) * 100 : 0,
+    }));
+
+    const hasData = byPeriod.some(p => p.shots > 0) || stateResult.some(s => s.shots > 0);
+
+    return hasData ? { byPeriod, byState: stateResult } : null;
+  }, [matches, player, playerId]);
+
+  const renderSparkline = () => {
+    if (ratingTrend.length < 2) return null;
+
+    const minR = Math.min(...ratingTrend);
+    const maxR = Math.max(...ratingTrend);
+    const range = maxR - minR || 1;
+    const plotW = CHART_WIDTH - CHART_PAD_X * 2;
+    const plotH = CHART_HEIGHT - CHART_PAD_Y * 2;
+
+    const points = ratingTrend.map((r, i) => {
+      const x = CHART_PAD_X + (i / (ratingTrend.length - 1)) * plotW;
+      const y = CHART_PAD_Y + plotH - ((r - minR) / range) * plotH;
+      return { x, y, rating: r };
+    });
+
+    const pointsStr = points.map(p => `${p.x},${p.y}`).join(' ');
+    const lastPoint = points[points.length - 1];
+
+    return (
+      <View style={styles.sparklineSection}>
+        <View style={styles.sparklineHeader}>
+          <TrendingUp color="#007AFF" size={16} />
+          <Text style={styles.sparklineTitle}>Rating Trend</Text>
+        </View>
+        <Svg width={CHART_WIDTH} height={CHART_HEIGHT}>
+          <Line
+            x1={CHART_PAD_X} y1={CHART_PAD_Y}
+            x2={CHART_PAD_X} y2={CHART_HEIGHT - CHART_PAD_Y}
+            stroke="#e5e5ea" strokeWidth={1}
+          />
+          <Line
+            x1={CHART_PAD_X} y1={CHART_HEIGHT - CHART_PAD_Y}
+            x2={CHART_WIDTH - CHART_PAD_X} y2={CHART_HEIGHT - CHART_PAD_Y}
+            stroke="#e5e5ea" strokeWidth={1}
+          />
+          <SvgText x={4} y={CHART_PAD_Y + 4} fontSize={9} fill="#8e8e93">{maxR.toFixed(1)}</SvgText>
+          <SvgText x={4} y={CHART_HEIGHT - CHART_PAD_Y + 4} fontSize={9} fill="#8e8e93">{minR.toFixed(1)}</SvgText>
+          <Polyline
+            points={pointsStr}
+            fill="none"
+            stroke="#007AFF"
+            strokeWidth={2}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
+          {points.map((p, i) => (
+            <Circle
+              key={i}
+              cx={p.x}
+              cy={p.y}
+              r={i === points.length - 1 ? 4 : 2.5}
+              fill={getRatingColor(p.rating)}
+              stroke="#fff"
+              strokeWidth={1}
+            />
+          ))}
+          <SvgText
+            x={lastPoint.x}
+            y={lastPoint.y - 8}
+            fontSize={10}
+            fontWeight="bold"
+            fill={getRatingColor(lastPoint.rating)}
+            textAnchor="middle"
+          >
+            {lastPoint.rating.toFixed(1)}
+          </SvgText>
+        </Svg>
+        <View style={styles.sparklineLabels}>
+          <Text style={styles.sparklineLabel}>Oldest</Text>
+          <Text style={styles.sparklineLabel}>{ratingTrend.length} games</Text>
+          <Text style={styles.sparklineLabel}>Latest</Text>
+        </View>
+      </View>
+    );
+  };
+
+  const renderGoalieBreakdown = () => {
+    if (!goalieBreakdown) return null;
+
+    const stateLabels: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+      even: { label: 'Even Strength', color: '#007AFF', icon: <Shield color="#007AFF" size={14} /> },
+      pp: { label: 'Power Play', color: '#FF9500', icon: <Zap color="#FF9500" size={14} /> },
+      sh: { label: 'Shorthanded', color: '#FF3B30', icon: <Shield color="#FF3B30" size={14} /> },
+    };
+
+    return (
+      <View style={styles.breakdownSection}>
+        <Text style={styles.sectionTitle}>Goalie Breakdown</Text>
+
+        <Text style={styles.breakdownSubtitle}>Save % by Period</Text>
+        <View style={styles.breakdownRow}>
+          {goalieBreakdown.byPeriod.map(p => (
+            <View key={p.period} style={styles.breakdownBox}>
+              <Text style={styles.breakdownPeriodLabel}>P{p.period}</Text>
+              <Text style={[styles.breakdownPct, { color: p.shots > 0 ? (p.pct >= 90 ? '#34C759' : p.pct >= 85 ? '#FF9500' : '#FF3B30') : '#8e8e93' }]}>
+                {p.shots > 0 ? `${p.pct.toFixed(1)}%` : '-'}
+              </Text>
+              <Text style={styles.breakdownSub}>{p.saves}/{p.shots}</Text>
+            </View>
+          ))}
+        </View>
+
+        <Text style={[styles.breakdownSubtitle, { marginTop: 16 }]}>Save % by Game State</Text>
+        <View style={styles.breakdownStateList}>
+          {goalieBreakdown.byState.map(s => {
+            const cfg = stateLabels[s.state] || { label: s.state, color: '#8e8e93', icon: null };
+            return (
+              <View key={s.state} style={styles.breakdownStateRow}>
+                <View style={styles.breakdownStateLabelRow}>
+                  {cfg.icon}
+                  <Text style={styles.breakdownStateLabel}>{cfg.label}</Text>
+                </View>
+                <View style={styles.breakdownBarBg}>
+                  <View style={[styles.breakdownBarFill, { width: `${s.shots > 0 ? s.pct : 0}%`, backgroundColor: cfg.color }]} />
+                </View>
+                <View style={styles.breakdownStateValues}>
+                  <Text style={[styles.breakdownStatePct, { color: s.shots > 0 ? cfg.color : '#8e8e93' }]}>
+                    {s.shots > 0 ? `${s.pct.toFixed(1)}%` : '-'}
+                  </Text>
+                  <Text style={styles.breakdownStateSub}>{s.saves}/{s.shots}</Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -68,6 +279,8 @@ export default function PlayerProfileScreen() {
             <Text style={styles.ratingLabel}>Rating</Text>
           </View>
         </View>
+
+        {renderSparkline()}
 
         {goalieStats && (
           <View style={styles.statsSection}>
@@ -142,6 +355,8 @@ export default function PlayerProfileScreen() {
             )}
           </View>
         )}
+
+        {renderGoalieBreakdown()}
 
         <View style={styles.statsSection}>
           <Text style={styles.sectionTitle}>Career Stats</Text>
@@ -361,6 +576,123 @@ const styles = StyleSheet.create({
     color: '#fff',
     opacity: 0.9,
   },
+  sparklineSection: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  sparklineHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  sparklineTitle: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: '#1c1c1e',
+  },
+  sparklineLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    marginTop: 4,
+  },
+  sparklineLabel: {
+    fontSize: 10,
+    color: '#8e8e93',
+    fontWeight: '500' as const,
+  },
+  breakdownSection: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  breakdownSubtitle: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#6c6c70',
+    marginBottom: 10,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  breakdownBox: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'center',
+  },
+  breakdownPeriodLabel: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    color: '#8e8e93',
+    marginBottom: 6,
+  },
+  breakdownPct: {
+    fontSize: 22,
+    fontWeight: '700' as const,
+    marginBottom: 2,
+  },
+  breakdownSub: {
+    fontSize: 11,
+    color: '#8e8e93',
+    fontWeight: '500' as const,
+  },
+  breakdownStateList: {
+    gap: 14,
+  },
+  breakdownStateRow: {
+    gap: 6,
+  },
+  breakdownStateLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  breakdownStateLabel: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#1c1c1e',
+  },
+  breakdownBarBg: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#e5e5ea',
+    overflow: 'hidden',
+  },
+  breakdownBarFill: {
+    height: '100%',
+    borderRadius: 4,
+    minWidth: 2,
+  },
+  breakdownStateValues: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  breakdownStatePct: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+  },
+  breakdownStateSub: {
+    fontSize: 12,
+    color: '#8e8e93',
+    fontWeight: '500' as const,
+  },
   statsSection: {
     backgroundColor: '#fff',
     borderRadius: 16,
@@ -480,7 +812,7 @@ const styles = StyleSheet.create({
   noData: {
     fontSize: 16,
     color: '#8e8e93',
-    textAlign: 'center',
+    textAlign: 'center' as const,
     paddingVertical: 24,
   },
   emptyState: {
@@ -492,7 +824,7 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: '#8e8e93',
-    textAlign: 'center',
+    textAlign: 'center' as const,
   },
   riskSection: {
     marginTop: 16,

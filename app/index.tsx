@@ -7,7 +7,9 @@ import { MatchStatsModal } from '@/components/MatchStatsModal';
 import { FaceoffModal } from '@/components/FaceoffModal';
 import { ShootoutModal } from '@/components/ShootoutModal';
 import { Stack, router } from 'expo-router';
-import { Plus, Target, Users, BarChart3, AlertCircle, RefreshCw, TrendingUp, Shield, History, Zap, ShieldOff, Undo2, Activity, ShieldBan, CircleOff, GitCompare, PieChart, ChevronDown, ChevronUp, Settings, Trophy, ChevronRight, Clock } from 'lucide-react-native';
+import { Plus, Target, Users, BarChart3, AlertCircle, RefreshCw, TrendingUp, Shield, History, Zap, ShieldOff, Undo2, Activity, ShieldBan, CircleOff, GitCompare, PieChart, ChevronDown, ChevronUp, Settings, Trophy, ChevronRight, Clock, Sun, Moon, Award, Flame } from 'lucide-react-native';
+import { useTheme } from '@/contexts/theme-context';
+import { calculateMilestones } from '@/utils/milestones';
 import { MomentumIndicator } from '@/components/MomentumIndicator';
 import { LineShiftTracker } from '@/components/LineShiftTracker';
 import { useMatchFeatures } from '@/contexts/match-features-context';
@@ -44,7 +46,9 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'History', icon: <History color="#bf5af2" size={20} />, route: '/match-history', color: '#bf5af2', bgColor: 'rgba(191,90,242,0.10)', description: 'Past games' },
   { label: 'Season', icon: <Activity color="#ff375f" size={20} />, route: '/season-dashboard', color: '#ff375f', bgColor: 'rgba(255,55,95,0.10)', description: 'Season overview' },
   { label: 'Compare', icon: <GitCompare color="#64d2ff" size={20} />, route: '/player-compare', color: '#64d2ff', bgColor: 'rgba(100,210,255,0.10)', description: 'Head to head' },
+  { label: 'Chemistry', icon: <Flame color="#ff6b6b" size={20} />, route: '/team-chemistry', color: '#ff6b6b', bgColor: 'rgba(255,107,107,0.10)', description: 'Line pairings' },
   { label: 'PP/PK', icon: <PieChart color="#ff6961" size={20} />, route: '/pp-pk-dashboard', color: '#ff6961', bgColor: 'rgba(255,105,97,0.10)', description: 'Special teams' },
+  { label: 'Milestones', icon: <Award color="#FFD700" size={20} />, route: '/milestones', color: '#FFD700', bgColor: 'rgba(255,215,0,0.10)', description: 'Achievements' },
   { label: 'Settings', icon: <Settings color="#98989d" size={20} />, route: '/match-features', color: '#98989d', bgColor: 'rgba(152,152,157,0.10)', description: 'Configure' },
 ];
 
@@ -63,8 +67,14 @@ export default function GameScreen() {
   } = useHockey();
 
   const { features } = useMatchFeatures();
+  const { isDark, toggleTheme } = useTheme();
 
   const insets = useSafeAreaInsets();
+
+  const milestoneCount = useMemo(() => {
+    const all = calculateMilestones(matches, players);
+    return all.filter(m => m.achieved).length;
+  }, [matches, players]);
 
   const [goalModalVisible, setGoalModalVisible] = useState(false);
   const [shotModalVisible, setShotModalVisible] = useState(false);
@@ -204,21 +214,24 @@ export default function GameScreen() {
     setPeriodSummaryVisible(false);
 
     if (currentPeriod >= 3 && !isDraw && !isOT) {
+      const mId = activeMatch.id;
       endMatch('regulation');
-      router.replace('/stats');
+      router.replace(`/post-game-summary?matchId=${mId}`);
     } else if (isOT && !isDraw) {
+      const mId = activeMatch.id;
       endMatch('overtime');
-      router.replace('/stats');
+      router.replace(`/post-game-summary?matchId=${mId}`);
     } else if (currentPeriod < 3) {
       nextPeriod();
     }
   }, [activeMatch, endMatch, nextPeriod]);
 
   const handleEndAsDraw = useCallback(() => {
+    const mId = activeMatch?.id;
     setPeriodSummaryVisible(false);
     endMatch('draw');
-    router.replace('/stats');
-  }, [endMatch]);
+    router.replace(`/post-game-summary?matchId=${mId}`);
+  }, [endMatch, activeMatch]);
 
   const handleStartOvertime = useCallback(() => {
     setPeriodSummaryVisible(false);
@@ -236,10 +249,11 @@ export default function GameScreen() {
   }, []);
 
   const handleShootoutComplete = useCallback(() => {
+    const mId = activeMatch?.id;
     setShootoutVisible(false);
     endMatch('shootout');
-    router.replace('/stats');
-  }, [endMatch]);
+    router.replace(`/post-game-summary?matchId=${mId}`);
+  }, [endMatch, activeMatch]);
 
   const handlePlayerPress = useCallback((player: Player) => {
     setSelectedPlayer(player);
@@ -319,7 +333,7 @@ export default function GameScreen() {
               <View style={styles.homeLogo}>
                 <Target color="#0af" size={22} />
               </View>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.homeTitle}>Hockey Tracker</Text>
                 <Text style={styles.homeSubtitle}>
                   {completedMatches.length > 0
@@ -327,6 +341,14 @@ export default function GameScreen() {
                     : 'Ready to track'}
                 </Text>
               </View>
+              <TouchableOpacity
+                style={styles.themeToggle}
+                onPress={toggleTheme}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                {isDark ? <Sun color="#ffcc00" size={20} /> : <Moon color="#5856D6" size={20} />}
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -402,6 +424,22 @@ export default function GameScreen() {
                 <Text style={styles.lastMatchOpponent} numberOfLines={1}>vs {lastMatch.opponentName}</Text>
               </View>
               <ChevronRight color="#3a3a3c" size={18} />
+            </TouchableOpacity>
+          )}
+
+          {milestoneCount > 0 && (
+            <TouchableOpacity
+              style={styles.milestoneBanner}
+              onPress={() => router.push('/milestones')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.milestoneBannerIcon}>
+                <Trophy color="#FFD700" size={18} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.milestoneBannerText}>{milestoneCount} Milestone{milestoneCount !== 1 ? 's' : ''} Unlocked</Text>
+              </View>
+              <ChevronRight color="#FFD700" size={16} />
             </TouchableOpacity>
           )}
 
@@ -1479,5 +1517,41 @@ const styles = StyleSheet.create({
   },
   ppshProgressSH: {
     backgroundColor: '#FF3B30',
+  },
+  themeToggle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  milestoneBanner: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,215,0,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,215,0,0.18)',
+    gap: 10,
+  },
+  milestoneBannerIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,215,0,0.15)',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  milestoneBannerText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#FFD700',
   },
 });
