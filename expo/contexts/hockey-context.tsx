@@ -1,6 +1,7 @@
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { generateShareCode, pushScoreboard, deactivateScoreboard } from '@/utils/live-scoreboard-sync';
 import {
   Player,
   Match,
@@ -114,6 +115,8 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         return;
       }
 
+      const shareCode = generateShareCode();
+
       const newMatch: Match = {
         id: Date.now().toString(),
         date: Date.now(),
@@ -136,6 +139,7 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         currentPeriod: 1,
         centers: centers || [],
         gameState: 'even',
+        shareCode,
       };
 
       const updated = [...matches, newMatch];
@@ -522,6 +526,10 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
 
   const endMatch = useCallback((endedAs?: 'regulation' | 'overtime' | 'shootout' | 'draw') => {
     if (!activeMatch) return;
+
+    if (activeMatch.shareCode) {
+      void deactivateScoreboard(activeMatch.shareCode);
+    }
 
     const updatedMatch = {
       ...activeMatch,
@@ -1356,6 +1364,46 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
 
     return csv;
   }, [matches, players, calculatePlayerStats, calculateGoalieStats]);
+
+  const syncScoreboard = useCallback((match: Match) => {
+    if (!match.shareCode || !match.isActive) return;
+
+    const foAll = match.faceoffs || [];
+    const foWins = foAll.filter(f => match.roster.some(r => r.playerId === f.winnerId)).length;
+
+    void pushScoreboard({
+      share_code: match.shareCode,
+      our_score: match.ourScore,
+      opponent_score: match.opponentScore,
+      our_shots: match.ourShots,
+      opponent_shots: match.opponentShots,
+      current_period: match.currentPeriod || 1,
+      is_overtime: match.isOvertime || false,
+      opponent_name: match.opponentName,
+      fo_wins: foWins,
+      fo_total: foAll.length,
+      game_state: match.gameState || 'even',
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    });
+  }, []);
+
+  useEffect(() => {
+    if (activeMatch && activeMatch.isActive && activeMatch.shareCode) {
+      syncScoreboard(activeMatch);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    activeMatch?.ourScore,
+    activeMatch?.opponentScore,
+    activeMatch?.ourShots,
+    activeMatch?.opponentShots,
+    activeMatch?.currentPeriod,
+    activeMatch?.gameState,
+    activeMatch?.faceoffs?.length,
+    activeMatch?.isOvertime,
+    syncScoreboard,
+  ]);
 
   return useMemo(() => ({
     players,

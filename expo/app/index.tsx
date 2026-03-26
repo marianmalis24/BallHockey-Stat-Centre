@@ -7,12 +7,13 @@ import { MatchStatsModal } from '@/components/MatchStatsModal';
 import { FaceoffModal } from '@/components/FaceoffModal';
 import { ShootoutModal } from '@/components/ShootoutModal';
 import { Stack, router } from 'expo-router';
-import { Plus, Target, Users, BarChart3, AlertCircle, RefreshCw, TrendingUp, Shield, History, Zap, ShieldOff, Undo2, Activity, ShieldBan, CircleOff, GitCompare, PieChart, ChevronDown, ChevronUp, Settings, Trophy, ChevronRight, Clock, Sun, Moon, Award, Flame } from 'lucide-react-native';
+import { Plus, Target, Users, BarChart3, AlertCircle, RefreshCw, TrendingUp, Shield, History, Zap, ShieldOff, Undo2, Activity, ShieldBan, CircleOff, GitCompare, PieChart, ChevronDown, ChevronUp, Settings, Trophy, ChevronRight, Clock, Sun, Moon, Award, Flame, Radio } from 'lucide-react-native';
 import { useTheme } from '@/contexts/theme-context';
 import { calculateMilestones } from '@/utils/milestones';
 import { MomentumIndicator } from '@/components/MomentumIndicator';
 import { LineShiftTracker } from '@/components/LineShiftTracker';
 import { useMatchFeatures } from '@/contexts/match-features-context';
+import { QRShareModal } from '@/components/QRShareModal';
 import React, { useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
@@ -49,6 +50,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Chemistry', icon: <Flame color="#ff6b6b" size={20} />, route: '/team-chemistry', color: '#ff6b6b', bgColor: 'rgba(255,107,107,0.10)', description: 'Line pairings' },
   { label: 'PP/PK', icon: <PieChart color="#ff6961" size={20} />, route: '/pp-pk-dashboard', color: '#ff6961', bgColor: 'rgba(255,105,97,0.10)', description: 'Special teams' },
   { label: 'Milestones', icon: <Award color="#FFD700" size={20} />, route: '/milestones', color: '#FFD700', bgColor: 'rgba(255,215,0,0.10)', description: 'Achievements' },
+  { label: 'Live View', icon: <Radio color="#4cd964" size={20} />, route: '/live-scoreboard', color: '#4cd964', bgColor: 'rgba(76,217,100,0.10)', description: 'Watch a game' },
   { label: 'Settings', icon: <Settings color="#98989d" size={20} />, route: '/match-features', color: '#98989d', bgColor: 'rgba(152,152,157,0.10)', description: 'Configure' },
 ];
 
@@ -94,6 +96,7 @@ export default function GameScreen() {
   const [blockedPlayerPickerVisible, setBlockedPlayerPickerVisible] = useState(false);
   const [widePlayerPickerVisible, setWidePlayerPickerVisible] = useState(false);
   const [moreExpanded, setMoreExpanded] = useState(false);
+  const [qrShareVisible, setQrShareVisible] = useState(false);
   const [ppshSummary, setPpshSummary] = useState<{ type: GameState | undefined; ourShots: number; oppShots: number; ourGoals: number; oppGoals: number; foWins: number; foLosses: number } | null>(null);
   const ppshOpacity = useRef(new Animated.Value(0)).current;
   const ppshTranslateY = useRef(new Animated.Value(-30)).current;
@@ -504,9 +507,14 @@ export default function GameScreen() {
       {/* FIXED TOP: Scoreboard + Game State */}
       <View style={[styles.fixedTop, { paddingTop: insets.top + 4 }]}>
         <View style={styles.topRow}>
-          <TouchableOpacity onPress={handleUndo} style={styles.topIconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Undo2 color={(activeMatch?.undoStack?.length ?? 0) > 0 ? '#FF9500' : '#3a3a3c'} size={20} />
-          </TouchableOpacity>
+          <View style={styles.topLeftBtns}>
+            <TouchableOpacity onPress={handleUndo} style={styles.topIconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Undo2 color={(activeMatch?.undoStack?.length ?? 0) > 0 ? '#FF9500' : '#3a3a3c'} size={20} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setQrShareVisible(true)} style={styles.topIconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Radio color="#4cd964" size={18} />
+            </TouchableOpacity>
+          </View>
           <View style={styles.compactScore}>
             <View style={styles.scoreTeam}>
               <Text style={styles.scoreTeamLabel}>US</Text>
@@ -735,6 +743,12 @@ export default function GameScreen() {
         visible={shootoutVisible}
         onClose={() => setShootoutVisible(false)}
         onComplete={handleShootoutComplete}
+      />
+
+      <QRShareModal
+        visible={qrShareVisible}
+        shareCode={activeMatch?.shareCode || ''}
+        onClose={() => setQrShareVisible(false)}
       />
 
       {ppshSummary && (
@@ -1517,6 +1531,11 @@ const styles = StyleSheet.create({
   },
   ppshProgressSH: {
     backgroundColor: '#FF3B30',
+  },
+  topLeftBtns: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 4,
   },
   themeToggle: {
     width: 38,

@@ -143,6 +143,7 @@ export interface Match {
   lines?: Line[];
   shifts?: ShiftEntry[];
   activeLineId?: string;
+  shareCode?: string;
 }
 
 export interface PlayerStats {
