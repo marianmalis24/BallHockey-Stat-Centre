@@ -42,6 +42,7 @@ function RootLayoutNav() {
       <Stack.Screen name="milestones" options={{ title: 'Milestones' }} />
       <Stack.Screen name="post-game-summary" options={{ headerShown: false, animation: 'fade' }} />
       <Stack.Screen name="team-chemistry" options={{ title: 'Team Chemistry' }} />
+      <Stack.Screen name="three-stars" options={{ title: '3 Stars', headerTransparent: true, headerTitle: '' }} />
     </Stack>
   );
 }

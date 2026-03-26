@@ -1,7 +1,7 @@
 import { useHockey } from '@/contexts/hockey-context';
 import { EditGoalModal } from '@/components/EditGoalModal';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, Target, Users, Crosshair, FileText, Edit3 } from 'lucide-react-native';
+import { ChevronLeft, Target, Users, Crosshair, FileText, Edit3, Star } from 'lucide-react-native';
 import React, { useMemo, useCallback, useState } from 'react';
 import { Goal, Match } from '@/types/hockey';
 import {
@@ -253,6 +253,25 @@ export default function MatchDetailScreen() {
             </View>
           </View>
         </View>
+
+        <TouchableOpacity
+          style={styles.threeStarsButton}
+          onPress={() => router.push({ pathname: '/three-stars', params: { matchId: match.id } })}
+          activeOpacity={0.7}
+        >
+          <View style={styles.threeStarsLeft}>
+            <View style={styles.threeStarsIconRow}>
+              <Star color="#FFD700" size={14} fill="#FFD700" />
+              <Star color="#C0C0C0" size={14} fill="#C0C0C0" />
+              <Star color="#CD7F32" size={14} fill="#CD7F32" />
+            </View>
+            <View>
+              <Text style={styles.threeStarsTitle}>3 Stars of the Game</Text>
+              <Text style={styles.threeStarsSubtitle}>See top performers & why they earned it</Text>
+            </View>
+          </View>
+          <ChevronLeft color="#8e8e93" size={18} style={{ transform: [{ rotate: '180deg' }] }} />
+        </TouchableOpacity>
 
         <View style={styles.statsCard}>
           <View style={styles.statHeader}>
@@ -941,5 +960,41 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600' as const,
+  },
+  threeStarsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255,215,0,0.04)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255,215,0,0.2)',
+  },
+  threeStarsLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  threeStarsIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  threeStarsTitle: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: '#1c1c1e',
+  },
+  threeStarsSubtitle: {
+    fontSize: 12,
+    color: '#8e8e93',
+    marginTop: 1,
   },
 });
