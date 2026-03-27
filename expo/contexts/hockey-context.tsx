@@ -22,6 +22,8 @@ import {
   Line,
   ShiftEntry,
   ShotRisk,
+  FaceoffZone,
+  FaceoffZoneStats,
 } from '@/types/hockey';
 
 const PLAYERS_KEY = 'hockey_players';
@@ -603,6 +605,11 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
       let faceoffWins = 0;
       let faceoffLosses = 0;
       let totalRating = 0;
+      const zoneStats: Record<FaceoffZone, { wins: number; losses: number }> = {
+        dzone: { wins: 0, losses: 0 },
+        ozone: { wins: 0, losses: 0 },
+        neutral: { wins: 0, losses: 0 },
+      };
 
       playerMatches.forEach((match) => {
         let matchGoals = 0;
@@ -689,10 +696,14 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
             if (faceoff.winnerId === playerId) {
               faceoffWins++;
               matchFaceoffWins++;
+              const z = faceoff.zone || 'neutral';
+              zoneStats[z].wins++;
             }
             if (faceoff.loserId === playerId) {
               faceoffLosses++;
               matchFaceoffLosses++;
+              const z = faceoff.zone || 'neutral';
+              zoneStats[z].losses++;
             }
           });
         }
@@ -725,6 +736,11 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
       const faceoffPercentage = faceoffTotal > 0 ? (faceoffWins / faceoffTotal) * 100 : 0;
       const averageRating = playerMatches.length > 0 ? totalRating / playerMatches.length : 0;
 
+      const makeZoneStat = (z: FaceoffZone): FaceoffZoneStats => {
+        const total = zoneStats[z].wins + zoneStats[z].losses;
+        return { wins: zoneStats[z].wins, losses: zoneStats[z].losses, pct: total > 0 ? (zoneStats[z].wins / total) * 100 : 0 };
+      };
+
       return {
         playerId,
         gamesPlayed: playerMatches.length,
@@ -743,6 +759,11 @@ export const [HockeyProvider, useHockey] = createContextHook(() => {
         faceoffLosses,
         faceoffPercentage,
         rating: averageRating,
+        faceoffByZone: {
+          dzone: makeZoneStat('dzone'),
+          ozone: makeZoneStat('ozone'),
+          neutral: makeZoneStat('neutral'),
+        },
       };
     },
     [matches, players]

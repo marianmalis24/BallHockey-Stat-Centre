@@ -2,6 +2,7 @@ import { useHockey } from '@/contexts/hockey-context';
 import { Stack, router } from 'expo-router';
 import { ChevronLeft, TrendingUp, Target, Shield, Zap, Award, Download } from 'lucide-react-native';
 import React, { useMemo, useCallback, useState } from 'react';
+import Svg, { Polyline, Circle, Line, Text as SvgText } from 'react-native-svg';
 import {
   View,
   Text,
@@ -11,10 +12,16 @@ import {
   Platform,
   Alert,
   Share,
+  Dimensions,
 } from 'react-native';
 
+const CHART_W = Dimensions.get('window').width - 72;
+const CHART_H = 120;
+const PAD_X = 28;
+const PAD_Y = 16;
+
 export default function SeasonDashboardScreen() {
-  const { calculateSeasonStats, exportSeasonCSV } = useHockey();
+  const { calculateSeasonStats, exportSeasonCSV, matches } = useHockey();
   const stats = useMemo(() => calculateSeasonStats(), [calculateSeasonStats]);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -45,6 +52,63 @@ export default function SeasonDashboardScreen() {
   }, [exportSeasonCSV]);
 
   const hasData = stats.gamesPlayed > 0;
+
+  const renderTrendChart = (data: number[], color: string, data2?: number[], color2?: string) => {
+    if (data.length < 2) return null;
+    const allVals = data2 ? [...data, ...data2] : data;
+    const minV = Math.min(...allVals);
+    const maxV = Math.max(...allVals);
+    const range = maxV - minV || 1;
+    const plotW = CHART_W - PAD_X * 2;
+    const plotH = CHART_H - PAD_Y * 2;
+
+    const toPoints = (vals: number[]) =>
+      vals.map((v, i) => ({
+        x: PAD_X + (i / (vals.length - 1)) * plotW,
+        y: PAD_Y + plotH - ((v - minV) / range) * plotH,
+        val: v,
+      }));
+
+    const pts = toPoints(data);
+    const pts2 = data2 ? toPoints(data2) : null;
+    const ptsStr = pts.map(p => `${p.x},${p.y}`).join(' ');
+    const pts2Str = pts2 ? pts2.map(p => `${p.x},${p.y}`).join(' ') : '';
+
+    return (
+      <Svg width={CHART_W} height={CHART_H}>
+        <Line x1={PAD_X} y1={PAD_Y} x2={PAD_X} y2={CHART_H - PAD_Y} stroke="#3a3a3c" strokeWidth={1} />
+        <Line x1={PAD_X} y1={CHART_H - PAD_Y} x2={CHART_W - PAD_X} y2={CHART_H - PAD_Y} stroke="#3a3a3c" strokeWidth={1} />
+        <SvgText x={4} y={PAD_Y + 4} fontSize={9} fill="#8e8e93">{maxV % 1 === 0 ? maxV : maxV.toFixed(1)}</SvgText>
+        <SvgText x={4} y={CHART_H - PAD_Y + 4} fontSize={9} fill="#8e8e93">{minV % 1 === 0 ? minV : minV.toFixed(1)}</SvgText>
+        {pts2Str && (
+          <Polyline points={pts2Str} fill="none" stroke={color2 || '#FF3B30'} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" opacity={0.6} />
+        )}
+        <Polyline points={ptsStr} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        {pts.map((p, i) => (
+          <Circle key={`a${i}`} cx={p.x} cy={p.y} r={i === pts.length - 1 ? 4 : 2} fill={color} />
+        ))}
+        {pts2 && pts2.map((p, i) => (
+          <Circle key={`b${i}`} cx={p.x} cy={p.y} r={i === pts2.length - 1 ? 4 : 2} fill={color2 || '#FF3B30'} opacity={0.6} />
+        ))}
+        <SvgText x={pts[pts.length - 1].x} y={pts[pts.length - 1].y - 8} fontSize={10} fontWeight="bold" fill={color} textAnchor="middle">
+          {data[data.length - 1] % 1 === 0 ? data[data.length - 1] : data[data.length - 1].toFixed(1)}
+        </SvgText>
+      </Svg>
+    );
+  };
+
+  const trendData = useMemo(() => {
+    const completed = [...matches].filter(m => !m.isActive).sort((a, b) => a.date - b.date);
+    const goalsPerGame = completed.map(m => m.ourScore);
+    const gaPerGame = completed.map(m => m.opponentScore);
+    const cumulativeWinPct: number[] = [];
+    let w = 0;
+    completed.forEach((m, i) => {
+      if (m.ourScore > m.opponentScore) w++;
+      cumulativeWinPct.push((w / (i + 1)) * 100);
+    });
+    return { goalsPerGame, gaPerGame, cumulativeWinPct, labels: completed.map((_, i) => i + 1) };
+  }, [matches]);
 
   const maxPeriodGoals = useMemo(() => {
     if (!hasData) return 1;
@@ -254,6 +318,36 @@ export default function SeasonDashboardScreen() {
                 </View>
               </View>
             </View>
+
+            {trendData.goalsPerGame.length >= 2 && (
+              <View style={styles.sectionCard}>
+                <View style={styles.sectionHeader}>
+                  <TrendingUp color="#5ac8fa" size={18} />
+                  <Text style={styles.sectionTitle}>Goals per Game</Text>
+                </View>
+                {renderTrendChart(trendData.goalsPerGame, '#34C759', trendData.gaPerGame, '#FF3B30')}
+                <View style={styles.legendRow}>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: '#34C759' }]} />
+                    <Text style={styles.legendText}>Goals For</Text>
+                  </View>
+                  <View style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: '#FF3B30' }]} />
+                    <Text style={styles.legendText}>Goals Against</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {trendData.cumulativeWinPct.length >= 2 && (
+              <View style={styles.sectionCard}>
+                <View style={styles.sectionHeader}>
+                  <Award color="#FFD700" size={18} />
+                  <Text style={styles.sectionTitle}>Win % Over Time</Text>
+                </View>
+                {renderTrendChart(trendData.cumulativeWinPct, '#FFD700')}
+              </View>
+            )}
 
             {(stats.ppOpportunities > 0 || stats.shOpportunities > 0) && (
               <View style={styles.sectionCard}>

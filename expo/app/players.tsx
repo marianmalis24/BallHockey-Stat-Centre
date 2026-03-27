@@ -1,7 +1,7 @@
 import { useHockey } from '@/contexts/hockey-context';
 import { Player, PlayerPosition } from '@/types/hockey';
 import { Stack } from 'expo-router';
-import { Plus, Trash2, Edit2 } from 'lucide-react-native';
+import { Plus, Trash2, Edit2, AlertTriangle, Check } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   View,
@@ -69,6 +69,22 @@ export default function PlayersScreen() {
     setModalVisible(true);
   };
 
+  const handleToggleInjury = (player: Player) => {
+    if (player.isInjured) {
+      updatePlayer(player.id, { isInjured: false, injuryNote: undefined, expectedReturn: undefined });
+    } else {
+      Alert.alert('Mark Injured', `Mark ${player.name} as injured?`, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Mark Injured',
+          onPress: () => {
+            updatePlayer(player.id, { isInjured: true });
+          },
+        },
+      ]);
+    }
+  };
+
   const handleDelete = (id: string) => {
     Alert.alert('Delete Player', 'Are you sure you want to delete this player?', [
       { text: 'Cancel', style: 'cancel' },
@@ -126,13 +142,32 @@ export default function PlayersScreen() {
                   <Text style={styles.jerseyNumber}>{item.jerseyNumber}</Text>
                 </View>
                 <View style={styles.playerInfo}>
-                  <Text style={styles.playerName}>{item.name}</Text>
+                  <View style={styles.nameRow}>
+                    <Text style={styles.playerName}>{item.name}</Text>
+                    {item.isInjured && (
+                      <View style={styles.injuryBadge}>
+                        <AlertTriangle color="#FF3B30" size={12} />
+                        <Text style={styles.injuryBadgeText}>INJ</Text>
+                      </View>
+                    )}
+                  </View>
                   <Text style={styles.playerPosition}>
                     {item.position.charAt(0).toUpperCase() + item.position.slice(1)}
+                    {item.isInjured && item.injuryNote ? ` · ${item.injuryNote}` : ''}
+                    {item.isInjured && item.expectedReturn ? ` · Back ${new Date(item.expectedReturn).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
                   </Text>
                 </View>
               </View>
               <View style={styles.actions}>
+                <TouchableOpacity
+                  onPress={() => handleToggleInjury(item)}
+                  style={styles.actionButton}
+                >
+                  {item.isInjured
+                    ? <Check color="#34C759" size={20} />
+                    : <AlertTriangle color="#FF9500" size={20} />
+                  }
+                </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => handleEdit(item)}
                   style={styles.actionButton}
@@ -311,6 +346,25 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: '#1c1c1e',
     marginBottom: 4,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  injuryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(255,59,48,0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  injuryBadgeText: {
+    fontSize: 10,
+    fontWeight: '700' as const,
+    color: '#FF3B30',
   },
   playerPosition: {
     fontSize: 14,

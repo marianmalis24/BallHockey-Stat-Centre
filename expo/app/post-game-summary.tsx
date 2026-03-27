@@ -12,8 +12,9 @@ import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useHockey } from '@/contexts/hockey-context';
 import { useTheme } from '@/contexts/theme-context';
 import { calculateMilestones } from '@/utils/milestones';
+import { checkNewPersonalBests } from '@/utils/personal-bests';
 import { getRatingColor } from '@/constants/ratingColors';
-import { Trophy, Star, Target, Shield, Share2, Home, ChevronRight, Award } from 'lucide-react-native';
+import { Trophy, Star, Target, Shield, Share2, Home, ChevronRight, Award, TrendingUp } from 'lucide-react-native';
 
 export default function PostGameSummaryScreen() {
   const { matchId } = useLocalSearchParams<{ matchId: string }>();
@@ -110,6 +111,11 @@ export default function PostGameSummaryScreen() {
   }, [match, players]);
 
   const topPerformers = useMemo(() => playerPerformances.slice(0, 3), [playerPerformances]);
+
+  const newPersonalBests = useMemo(() => {
+    if (!matchId) return [];
+    return checkNewPersonalBests(matches, players, matchId);
+  }, [matches, players, matchId]);
 
   const handleShare = useCallback(async () => {
     if (!match) return;
@@ -267,6 +273,26 @@ export default function PostGameSummaryScreen() {
                   <Text style={[styles.goalieStatLbl, { color: colors.textSec }]}>SV%</Text>
                 </View>
               </View>
+            </View>
+          </>
+        )}
+
+        {newPersonalBests.length > 0 && (
+          <>
+            <Text style={[styles.sectionTitle, { color: colors.textSec }]}>New Personal Bests!</Text>
+            <View style={[styles.milestoneSection, { backgroundColor: 'rgba(0,170,255,0.08)', borderColor: 'rgba(0,170,255,0.2)' }]}>
+              <View style={styles.milestoneSectionHeader}>
+                <TrendingUp color="#0af" size={18} />
+                <Text style={[styles.milestoneSectionTitle, { color: '#0af' }]}>Career Highs</Text>
+              </View>
+              {newPersonalBests.map((pb, idx) => (
+                <View key={`${pb.playerId}-${pb.stat}-${idx}`} style={styles.milestoneRow}>
+                  <Star color="#0af" size={14} />
+                  <Text style={[styles.milestoneText, { color: '#0af' }]}>
+                    #{pb.jerseyNumber} {pb.playerName}: {pb.value} {pb.statLabel}
+                  </Text>
+                </View>
+              ))}
             </View>
           </>
         )}

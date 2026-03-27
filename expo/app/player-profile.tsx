@@ -417,6 +417,33 @@ export default function PlayerProfileScreen() {
           </View>
         </View>
 
+        {stats.faceoffByZone && (stats.faceoffByZone.dzone.wins + stats.faceoffByZone.dzone.losses + stats.faceoffByZone.ozone.wins + stats.faceoffByZone.ozone.losses + stats.faceoffByZone.neutral.wins + stats.faceoffByZone.neutral.losses > 0) && (
+          <View style={styles.statsSection}>
+            <Text style={styles.sectionTitle}>Faceoff % by Zone</Text>
+            {[{ key: 'ozone' as const, label: 'O-Zone', color: '#34C759' }, { key: 'neutral' as const, label: 'Neutral', color: '#FF9500' }, { key: 'dzone' as const, label: 'D-Zone', color: '#FF3B30' }].map(z => {
+              const zs = stats.faceoffByZone![z.key];
+              const total = zs.wins + zs.losses;
+              return (
+                <View key={z.key} style={styles.riskBarItem}>
+                  <View style={styles.riskBarLabelRow}>
+                    <View style={[styles.riskDot, { backgroundColor: z.color }]} />
+                    <Text style={styles.riskBarLabel}>{z.label}</Text>
+                  </View>
+                  <View style={styles.riskBarBg}>
+                    <View style={[styles.riskBarFill, { width: `${total > 0 ? zs.pct : 0}%`, backgroundColor: z.color }]} />
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={[styles.riskBarValue, { color: total > 0 ? z.color : '#8e8e93' }]}>
+                      {total > 0 ? `${zs.pct.toFixed(1)}%` : '-'}
+                    </Text>
+                    <Text style={styles.riskBarSub}>{zs.wins}W / {zs.losses}L</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
         <View style={styles.historySection}>
           <Text style={styles.sectionTitle}>Match History</Text>
           {matchHistory.length === 0 ? (

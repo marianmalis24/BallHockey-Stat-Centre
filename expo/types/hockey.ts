@@ -1,12 +1,16 @@
 export type PlayerPosition = 'forward' | 'defense' | 'goalie';
 export type ShotRisk = 'low' | 'medium' | 'high';
 export type GameState = 'even' | 'pp' | 'sh';
+export type FaceoffZone = 'dzone' | 'ozone' | 'neutral';
 
 export interface Player {
   id: string;
   name: string;
   jerseyNumber: number;
   position: PlayerPosition;
+  isInjured?: boolean;
+  injuryNote?: string;
+  expectedReturn?: number;
 }
 
 export interface ShotLocation {
@@ -51,6 +55,7 @@ export interface FaceoffEvent {
   timestamp: number;
   period: number;
   gameState?: GameState;
+  zone?: FaceoffZone;
 }
 
 export interface PenaltyEvent {
@@ -146,6 +151,12 @@ export interface Match {
   shareCode?: string;
 }
 
+export interface FaceoffZoneStats {
+  wins: number;
+  losses: number;
+  pct: number;
+}
+
 export interface PlayerStats {
   playerId: string;
   gamesPlayed: number;
@@ -164,6 +175,11 @@ export interface PlayerStats {
   faceoffLosses: number;
   faceoffPercentage: number;
   rating: number;
+  faceoffByZone?: {
+    dzone: FaceoffZoneStats;
+    ozone: FaceoffZoneStats;
+    neutral: FaceoffZoneStats;
+  };
 }
 
 export interface GoalieStats {
